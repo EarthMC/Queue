@@ -53,7 +53,7 @@ public class PauseCommand extends BaseCommand implements SimpleCommand {
             queue.pause(true, unpauseTime);
 
         String message = String.format("You have %s the queue for server %s", queue.paused() ? "paused" : "resumed", invocation.arguments()[0]);
-        if (usingSeconds)
+        if (usingSeconds && queue.paused())
             message += " for " + seconds + " seconds.";
 
 

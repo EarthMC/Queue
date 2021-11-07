@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 @Plugin(id = "queue", name = "Queue", version = "0.0.1", authors = {"Warriorrr"})
 public class QueuePlugin {
 
-    private final ProxyServer proxy;
+    private static ProxyServer proxy;
     private static QueuePlugin instance;
     private final Map<String, Queue> queues = new HashMap<>();
     private final Map<Player, QueuedPlayer> queuedPlayers = new HashMap<>();
@@ -30,7 +30,7 @@ public class QueuePlugin {
     @Inject
     public QueuePlugin(ProxyServer proxy, CommandManager commandManager) {
         QueuePlugin.instance = this;
-        this.proxy = proxy;
+        QueuePlugin.proxy = proxy;
 
         commandManager.register("joinqueue", new JoinCommand());
         commandManager.register("leavequeue", new LeaveCommand());
@@ -62,6 +62,10 @@ public class QueuePlugin {
 
     public static QueuePlugin instance() {
         return instance;
+    }
+
+    public static ProxyServer proxy() {
+        return proxy;
     }
 
     @Nullable
