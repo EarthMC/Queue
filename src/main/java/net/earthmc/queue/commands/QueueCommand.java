@@ -22,7 +22,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
             }
 
             QueuedPlayer queuedPlayer = QueuePlugin.instance().queued(player);
-            player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.queue().getQueue(queuedPlayer).size(), NamedTextColor.GREEN).append(Component.text(" for " + queuedPlayer.queue().getServerFormatted(), NamedTextColor.YELLOW))))));
+            player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.queue().getQueue(queuedPlayer).players().size(), NamedTextColor.GREEN).append(Component.text(" for " + queuedPlayer.queue().getServerFormatted(), NamedTextColor.YELLOW))))));
             if (queuedPlayer.queue().paused())
                 player.sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
         } else {

@@ -41,7 +41,7 @@ public class QueuedPlayer {
         if (queue == null)
             return -1;
 
-        return queue.getQueue(this).indexOf(this);
+        return queue.getQueue(this).players.indexOf(this);
     }
 
     public boolean isInQueue() {
@@ -78,5 +78,25 @@ public class QueuedPlayer {
             return new Priority(0, empty());
     }
 
-    public record Priority(int weight, Component message) {}
+    public record Priority(int weight, Component message) {
+        public boolean premium() {
+            return weight >= 5;
+        }
+
+        public boolean priority() {
+            return weight < 4 && weight > 0;
+        }
+
+        public boolean regular() {
+            return weight == 0;
+        }
+
+        public Queue.SubQueueType queueType() {
+            return switch (weight) {
+                case 1, 2, 3, 4 -> Queue.SubQueueType.PRIORITY;
+                case 5, 6 -> Queue.SubQueueType.PREMIUM;
+                default -> Queue.SubQueueType.REGULAR;
+            };
+        }
+    }
 }
