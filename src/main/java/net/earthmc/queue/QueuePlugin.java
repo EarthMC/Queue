@@ -2,6 +2,7 @@ package net.earthmc.queue;
 
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
+import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.plugin.Plugin;
@@ -54,6 +55,18 @@ public class QueuePlugin {
                 queue.refreshMaxPlayers();
 
         }).repeat(10, TimeUnit.SECONDS).schedule();
+    }
+
+    @Subscribe
+    public void onPlayerLeave(DisconnectEvent event) {
+        if (!queuedPlayers.containsKey(event.getPlayer()))
+            return;
+
+        QueuedPlayer player = queuedPlayers.get(event.getPlayer());
+        if (player.isInQueue())
+            player.queue().remove(player);
+
+        queuedPlayers.remove(event.getPlayer());
     }
 
     public Map<String, Queue> queues() {

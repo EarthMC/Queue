@@ -33,8 +33,12 @@ public class Queue {
 
     public Queue(RegisteredServer server) {
         this.server = server;
+
         String name = server.getServerInfo().getName();
-        this.formattedName = name.substring(0, 1).toUpperCase() + name.substring(1).toLowerCase();
+        if (name.equalsIgnoreCase("towny"))
+            name = "EarthMC";
+
+        this.formattedName = name.substring(0, 1).toUpperCase() + name.substring(1);
 
         refreshMaxPlayers();
     }
