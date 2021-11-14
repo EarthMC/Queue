@@ -1,0 +1,5 @@
+name: QueueSound
+version: '${project.version}'
+main: net.earthmc.queuesound.QueueSound
+api-version: 1.17
+authors: [ Warriorrr ]

@@ -1,54 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
 
-    <groupId>net.earthmc</groupId>
-    <artifactId>Queue</artifactId>
-    <version>0.0.1</version>
-    <packaging>jar</packaging>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
 
-    <name>Queue</name>
+  <groupId>net.earthmc</groupId>
+  <artifactId>Queue</artifactId>
+  <packaging>pom</packaging>
+  <version>0.0.1</version>
 
-    <properties>
-        <java.version>11</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
+  <modules>
+    <module>bukkit</module>
+    <module>velocity</module>
+  </modules>
 
-    <repositories>
-        <repository>
-            <id>velocitypowered-repo</id>
-            <url>https://nexus.velocitypowered.com/repository/maven-public/</url>
-        </repository>
-    </repositories>
+  <name>Queue-Parent</name>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.velocitypowered</groupId>
-            <artifactId>velocity-api</artifactId>
-            <version>3.0.0</version>
-            <scope>provided</scope>
-        </dependency>
-    </dependencies>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>16</maven.compiler.source>
+    <maven.compiler.target>16</maven.compiler.target>
+  </properties>
 
-    <build>
-        <resources>
-            <resource>
-                <directory>${project.basedir}/src/main/resources</directory>
-                <filtering>true</filtering>
-            </resource>
-        </resources>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
-                <configuration>
-                    <source>16</source>
-                    <target>16</target>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+  <build>
+    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
+      <plugins>
+        <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.1.0</version>
+        </plugin>
+        <!-- default lifecycle, jar packaging: see https://maven.apache.org/ref/current/maven-core/default-bindings.html#Plugin_bindings_for_jar_packaging -->
+        <plugin>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.8.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>2.5.2</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
 </project>

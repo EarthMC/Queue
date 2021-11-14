@@ -2,6 +2,8 @@ package net.earthmc.queue;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import net.kyori.adventure.text.Component;
@@ -115,9 +117,24 @@ public class Queue {
             rememberPosition(player);
 
             player.player().sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players.size(), NamedTextColor.GREEN).append(Component.text(" for " + formattedName, NamedTextColor.YELLOW))))));
+
+            if (player.position() < 3 && queue.players.size() > 20)
+                playSound(player.player());
+
             if (paused)
                 player.player().sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
         }
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    public void playSound(Player player) {
+        if (player.getCurrentServer().isEmpty())
+            return;
+
+        ByteArrayDataOutput out = ByteStreams.newDataOutput();
+        out.writeUTF(player.getUsername());
+
+        player.getCurrentServer().get().sendPluginMessage(() -> "queue:sound", out.toByteArray());
     }
 
     public void rememberPosition(QueuedPlayer player) {
@@ -199,8 +216,8 @@ public class Queue {
             if (premiumQueue.sends > 3 && !dry)
                 premiumQueue.sends = 0;
 
-            if (priorityQueue.sends > 0 || priorityQueue.players.isEmpty()) {
-                if (priorityQueue.sends > 0 && !dry)
+            if (priorityQueue.sends > 2 || priorityQueue.players.isEmpty()) {
+                if (priorityQueue.sends > 2 && !dry)
                     priorityQueue.sends = 0;
 
                 return regularQueue;

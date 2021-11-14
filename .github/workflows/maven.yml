@@ -28,5 +28,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: Queue
-          path: target/Queue-*.jar
+          path: |
+            velocity/target/queue-velocity-*.jar
+            bukkit/target/queue-bukkit-*.jar
           if-no-files-found: error
