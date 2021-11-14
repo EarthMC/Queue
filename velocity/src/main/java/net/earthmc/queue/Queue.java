@@ -66,9 +66,13 @@ public class Queue {
 
         // Gets the queue to send the next player from.
         SubQueue queue = getQueue(false);
-        QueuedPlayer toSend = queue.players.get(0);
-        rememberPosition(toSend);
+        QueuedPlayer toSend = queue.players.remove(0);
+        toSend.queue(null);
+        rememberPosition(toSend, 0);
         Player player = toSend.player();
+
+        if (player == null || player.getCurrentServer().get().getServerInfo().getName().equalsIgnoreCase(server.getServerInfo().getName()))
+            return;
 
         player.sendMessage(Component.text("You are being sent to " + formattedName + "...", NamedTextColor.GREEN));
 
@@ -78,16 +82,22 @@ public class Queue {
                     queue.sends++;
 
                 player.sendMessage(Component.text("You have been sent to " + formattedName + ".", NamedTextColor.GREEN));
-                queue.players.remove(0);
-                toSend.queue(null);
                 failedAttempts = 0;
                 sendProgressMessages(queue);
+                QueuePlugin.log(player.getUsername() + " has been sent to " + formattedName + " via queue.");
             } else {
                 player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
+                player.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));
+                toSend.queue(this);
+                queue.players.add(0, toSend);
                 failedAttempts++;
             }
         }).exceptionally(e -> {
+            e.printStackTrace();
             player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
+            player.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));
+            toSend.queue(this);
+            queue.players.add(0, toSend);
             failedAttempts++;
             return null;
         });
@@ -138,7 +148,11 @@ public class Queue {
     }
 
     public void rememberPosition(QueuedPlayer player) {
-        rememberedPlayers.put(player.player().getUniqueId(), player.position());
+        rememberPosition(player, player.position());
+    }
+
+    public void rememberPosition(QueuedPlayer player, int index) {
+        rememberedPlayers.put(player.player().getUniqueId(), index);
     }
 
     public void enqueue(QueuedPlayer player) {
@@ -148,6 +162,7 @@ public class Queue {
                 return;
             } else {
                 player.player().sendMessage(Component.text("You have been removed from the queue for " + player.queue().getServerFormatted() + ".", NamedTextColor.RED));
+                QueuePlugin.log(player.player().getUsername() + " has been removed from the queue, because they tried to join another.");
                 player.queue().remove(player);
             }
         }

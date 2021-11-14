@@ -15,10 +15,12 @@ import net.earthmc.queue.commands.LeaveCommand;
 import net.earthmc.queue.commands.PauseCommand;
 import net.earthmc.queue.commands.QueueCommand;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Plugin(id = "queue", name = "Queue", version = "0.0.1", authors = {"Warriorrr"})
@@ -26,13 +28,15 @@ public class QueuePlugin {
 
     private static ProxyServer proxy;
     private static QueuePlugin instance;
+    private final Logger logger;
     private final Map<String, Queue> queues = new HashMap<>();
-    private final Map<Player, QueuedPlayer> queuedPlayers = new HashMap<>();
+    private final Map<UUID, QueuedPlayer> queuedPlayers = new HashMap<>();
 
     @Inject
-    public QueuePlugin(ProxyServer proxy, CommandManager commandManager) {
+    public QueuePlugin(ProxyServer proxy, CommandManager commandManager, Logger logger) {
         QueuePlugin.instance = this;
         QueuePlugin.proxy = proxy;
+        this.logger = logger;
 
         commandManager.register("joinqueue", new JoinCommand());
         commandManager.register("leavequeue", new LeaveCommand());
@@ -60,27 +64,27 @@ public class QueuePlugin {
 
     @Subscribe
     public void onPlayerLeave(DisconnectEvent event) {
-        if (!queuedPlayers.containsKey(event.getPlayer()))
+        if (!queuedPlayers.containsKey(event.getPlayer().getUniqueId()))
             return;
 
-        QueuedPlayer player = queuedPlayers.get(event.getPlayer());
+        QueuedPlayer player = queuedPlayers.get(event.getPlayer().getUniqueId());
         if (player != null && player.isInQueue())
             player.queue().remove(player);
 
-        queuedPlayers.remove(event.getPlayer());
+        queuedPlayers.remove(event.getPlayer().getUniqueId());
     }
 
     @Subscribe
     public void onPlayerJoin(ServerConnectedEvent event) {
-        if (event.getPlayer().hasPermission("queue.autoqueue")) {
+        QueuedPlayer player = queued(event.getPlayer());
+        if (player.isInQueue())
+            player.queue().remove(player);
+
+        if (event.getPlayer().hasPermission("queue.autoqueue") && !event.getServer().getServerInfo().getName().equalsIgnoreCase("towny")) {
             proxy().getScheduler().buildTask(this, () -> {
                 proxy.getCommandManager().executeAsync(event.getPlayer(), "joinqueue towny");
             }).delay(1, TimeUnit.SECONDS).schedule();
         }
-
-        QueuedPlayer player = queued(event.getPlayer());
-        if (player != null && player.isInQueue())
-            player.queue().remove(player);
     }
 
     public Map<String, Queue> queues() {
@@ -113,8 +117,12 @@ public class QueuePlugin {
     }
 
     public QueuedPlayer queued(Player player) {
-        queuedPlayers.computeIfAbsent(player, k -> new QueuedPlayer(player));
+        queuedPlayers.computeIfAbsent(player.getUniqueId(), k -> new QueuedPlayer(player));
 
-        return queuedPlayers.get(player);
+        return queuedPlayers.get(player.getUniqueId());
+    }
+
+    public static void log(Object message) {
+        instance.logger.info(String.valueOf(message));
     }
 }

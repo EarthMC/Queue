@@ -56,15 +56,11 @@ public class PauseCommand extends BaseCommand implements SimpleCommand {
         if (usingSeconds && queue.paused())
             message += " for " + seconds + " seconds.";
 
-
         source.sendMessage(Component.text(message, NamedTextColor.GREEN));
     }
 
     @Override
     public List<String> suggest(Invocation invocation) {
-        if (invocation.arguments().length == 1)
-            return filterByStart(QueuePlugin.instance().queues().keySet(), invocation.arguments()[0]);
-
         return Collections.emptyList();
     }
 }

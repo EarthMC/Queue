@@ -10,7 +10,7 @@
         <version>0.0.1</version>
     </parent>
 
-    <name>Queue</name>
+    <name>Queue-Velocity</name>
     <artifactId>queue-velocity</artifactId>
 
     <properties>
