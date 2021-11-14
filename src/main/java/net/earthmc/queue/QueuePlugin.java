@@ -3,6 +3,7 @@ package net.earthmc.queue;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
+import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.plugin.Plugin;
@@ -63,10 +64,23 @@ public class QueuePlugin {
             return;
 
         QueuedPlayer player = queuedPlayers.get(event.getPlayer());
-        if (player.isInQueue())
+        if (player != null && player.isInQueue())
             player.queue().remove(player);
 
         queuedPlayers.remove(event.getPlayer());
+    }
+
+    @Subscribe
+    public void onPlayerJoin(ServerConnectedEvent event) {
+        if (event.getPlayer().hasPermission("queue.autoqueue")) {
+            proxy().getScheduler().buildTask(this, () -> {
+                proxy.getCommandManager().executeAsync(event.getPlayer(), "joinqueue towny");
+            }).delay(1, TimeUnit.SECONDS).schedule();
+        }
+
+        QueuedPlayer player = queued(event.getPlayer());
+        if (player != null && player.isInQueue())
+            player.queue().remove(player);
     }
 
     public Map<String, Queue> queues() {

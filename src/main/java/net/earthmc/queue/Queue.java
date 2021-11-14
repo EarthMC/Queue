@@ -106,7 +106,7 @@ public class Queue {
     }
 
     public void sendProgressMessages(SubQueue queue) {
-        if (queue.lastPositionMessageTime.plusSeconds(3).isBefore(Instant.now()))
+        if (queue.lastPositionMessageTime.plusSeconds(3).isAfter(Instant.now()))
             return;
 
         queue.lastPositionMessageTime = Instant.now();
@@ -179,6 +179,7 @@ public class Queue {
 
     public void remove(QueuedPlayer player) {
         rememberPosition(player);
+        player.queue(null);
 
         regularQueue.players.remove(player);
         priorityQueue.players.remove(player);

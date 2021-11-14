@@ -20,7 +20,7 @@ public class PauseCommand extends BaseCommand implements SimpleCommand {
         CommandSource source = invocation.source();
 
         if (!source.hasPermission("queue.pause")) {
-            source.sendMessage(Component.text("You do not have enough permissions to use this command."));
+            source.sendMessage(Component.text("You do not have enough permissions to use this command.", NamedTextColor.RED));
             return;
         }
 

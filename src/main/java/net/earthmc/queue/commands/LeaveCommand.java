@@ -27,6 +27,7 @@ public class LeaveCommand extends BaseCommand implements SimpleCommand {
         }
 
         queuedPlayer.queue().remove(queuedPlayer);
+        queuedPlayer.queue(null);
         player.sendMessage(Component.text("You have left the queue.", NamedTextColor.GREEN));
     }
 

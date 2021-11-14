@@ -8,6 +8,8 @@ import net.earthmc.queue.QueuedPlayer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 public class QueueCommand extends BaseCommand implements SimpleCommand {
@@ -65,5 +67,10 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
                 });
             }
         }
+    }
+
+    @Override
+    public List<String> suggest(Invocation invocation) {
+        return Collections.emptyList();
     }
 }

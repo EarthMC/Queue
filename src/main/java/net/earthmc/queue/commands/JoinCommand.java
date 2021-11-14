@@ -49,9 +49,6 @@ public class JoinCommand extends BaseCommand implements SimpleCommand {
 
     @Override
     public List<String> suggest(Invocation invocation) {
-        if (invocation.arguments().length == 1)
-            return filterByStart(QueuePlugin.instance().queues().keySet(), invocation.arguments()[0]);
-
         return Collections.emptyList();
     }
 }
