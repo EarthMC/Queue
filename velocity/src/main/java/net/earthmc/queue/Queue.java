@@ -71,8 +71,12 @@ public class Queue {
         rememberPosition(toSend, 0);
         Player player = toSend.player();
 
-        if (player == null || !player.isActive() || player.getCurrentServer().get().getServerInfo().getName().equalsIgnoreCase(server.getServerInfo().getName()))
+        if (player == null || !player.isActive())
             return;
+
+        if (player.getCurrentServer().isPresent())
+            if (player.getCurrentServer().get().getServerInfo().getName().equalsIgnoreCase(server.getServerInfo().getName()))
+                return;
 
         player.sendMessage(Component.text("You are being sent to " + formattedName + "...", NamedTextColor.GREEN));
 
