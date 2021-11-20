@@ -148,7 +148,7 @@ public class Queue {
         ByteArrayDataOutput out = ByteStreams.newDataOutput();
         out.writeUTF(player.getUsername());
 
-        player.getCurrentServer().get().sendPluginMessage(() -> "queue:sound", out.toByteArray());
+        player.sendPluginMessage(() -> "queue:sound", out.toByteArray());
     }
 
     public void rememberPosition(QueuedPlayer player) {
