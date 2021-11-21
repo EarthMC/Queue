@@ -3,6 +3,7 @@ package net.earthmc.queue;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
+import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.Subscribe;
@@ -14,6 +15,8 @@ import net.earthmc.queue.commands.JoinCommand;
 import net.earthmc.queue.commands.LeaveCommand;
 import net.earthmc.queue.commands.PauseCommand;
 import net.earthmc.queue.commands.QueueCommand;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -80,11 +83,20 @@ public class QueuePlugin {
         if (player.isInQueue())
             player.queue().remove(player);
 
-        if (event.getPlayer().hasPermission("queue.autoqueue") && !event.getServer().getServerInfo().getName().equalsIgnoreCase("towny")) {
+        String targetServer = "towny";
+        if (event.getPlayer().hasPermission("queue.autoqueue") && !event.getServer().getServerInfo().getName().equalsIgnoreCase(targetServer)) {
             proxy().getScheduler().buildTask(this, () -> {
-                proxy.getCommandManager().executeAsync(event.getPlayer(), "joinqueue towny");
-            }).delay(1, TimeUnit.SECONDS).schedule();
+                Queue townyQueue = queue(targetServer);
+                if (townyQueue != null)
+                    townyQueue.enqueue(player);
+            }).delay(3, TimeUnit.SECONDS).schedule();
         }
+    }
+
+    @Subscribe
+    public void onPlayerKick(KickedFromServerEvent event) {
+        Component reason = event.getServerKickReason().orElse(Component.text("You have been kicked from the server you were on.", NamedTextColor.RED));
+        event.setResult(KickedFromServerEvent.DisconnectPlayer.create(reason));
     }
 
     public Map<String, Queue> queues() {
