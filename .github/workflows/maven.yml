@@ -29,6 +29,6 @@ jobs:
         with:
           name: Queue
           path: |
-            velocity/target/queue-velocity-*.jar
+            velocity/target/Queue-*.jar
             bukkit/target/queue-bukkit-*.jar
           if-no-files-found: error
