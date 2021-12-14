@@ -91,12 +91,19 @@ public class Queue {
                 QueuePlugin.log(player.getUsername() + " has been sent to " + formattedName + " via queue.");
             } else {
                 player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
-                player.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));
-                toSend.queue(this);
-                queue.players.add(0, toSend);
-                failedAttempts++;
+
+                Component reason = switch (result.getStatus()) {
+                    case CONNECTION_IN_PROGRESS -> Component.text("You are already being connected to this server!", NamedTextColor.RED);
+                    case SERVER_DISCONNECTED -> result.getReasonComponent().isPresent() ? result.getReasonComponent().get() : Component.text("The target server has refused your connection.", NamedTextColor.RED);
+                    case ALREADY_CONNECTED -> Component.text("You are already connected to this server!", NamedTextColor.RED);
+                    case CONNECTION_CANCELLED -> Component.text("Your connection has been cancelled unexpectedly.", NamedTextColor.RED);
+                    default -> Component.text("", NamedTextColor.RED);
+                };
+
+                player.sendMessage(Component.text("Reason: ", reason.colorIfAbsent(NamedTextColor.RED).color()).append(reason));
             }
         }).exceptionally(e -> {
+            QueuePlugin.warn("An exception occurred while trying to send " + player.getUsername() + " to " + formattedName + ":");
             e.printStackTrace();
             player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
             player.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));

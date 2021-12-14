@@ -84,7 +84,7 @@ public class QueuePlugin {
             player.queue().remove(player);
 
         String targetServer = "towny";
-        if (event.getPlayer().hasPermission("queue.autoqueue") && !event.getServer().getServerInfo().getName().equalsIgnoreCase(targetServer)) {
+        if (event.getPlayer().hasPermission("queue.autoqueue") && event.getServer().getServerInfo().getName().equalsIgnoreCase("hub")) {
             proxy().getScheduler().buildTask(this, () -> {
                 Queue townyQueue = queue(targetServer);
                 if (townyQueue != null)
@@ -136,5 +136,9 @@ public class QueuePlugin {
 
     public static void log(Object message) {
         instance.logger.info(String.valueOf(message));
+    }
+
+    public static void warn(Object message) {
+        instance.logger.warn(String.valueOf(message));
     }
 }
