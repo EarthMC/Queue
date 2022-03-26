@@ -35,9 +35,4 @@ public class LeaveCommand extends BaseCommand implements SimpleCommand {
     public List<String> suggest(Invocation invocation) {
         return Collections.emptyList();
     }
-
-    @Override
-    public boolean hasPermission(Invocation invocation) {
-        return true;
-    }
 }

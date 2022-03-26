@@ -1,14 +1,14 @@
 package net.earthmc.queue;
 
 import com.velocitypowered.api.proxy.Player;
+import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.audience.ForwardingAudience;
 import net.kyori.adventure.text.Component;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import static net.kyori.adventure.text.Component.*;
-import static net.kyori.adventure.text.format.NamedTextColor.*;
+import java.util.Locale;
 
-public class QueuedPlayer {
+public class QueuedPlayer implements ForwardingAudience.Single {
     private final Player player;
     private Queue queue;
     private Priority priority;
@@ -33,15 +33,11 @@ public class QueuedPlayer {
         return priority;
     }
 
-    public boolean priorityQueue() {
-        return priority().weight > 0;
-    }
-
     public int position() {
         if (queue == null)
             return -1;
 
-        return queue.getQueue(this).players.indexOf(this);
+        return queue.getSubQueue(this).players.indexOf(this);
     }
 
     public boolean isInQueue() {
@@ -60,43 +56,23 @@ public class QueuedPlayer {
         this.queue = queue;
     }
 
-    @Contract(" -> new")
     private @NotNull Priority calculatePriority() {
-        if (player.hasPermission("queue.priority.staff"))
-            return new Priority(6, text("Staff", DARK_GREEN).append(text(" access activated.", GREEN)));
-        else if (player.hasPermission("queue.priority.premium"))
-            return new Priority(5, text("Premium", LIGHT_PURPLE).append(text(" access activated.", GREEN)));
-        else if (player.hasPermission("queue.priority.donator3"))
-            return new Priority(4, text("Blue", BLUE).append(text(" donator access activated.", GREEN)));
-        else if (player.hasPermission("queue.priority.donator2"))
-            return new Priority(3, text("Purple", DARK_PURPLE).append(text(" donator access activated.", GREEN)));
-        else if (player.hasPermission("queue.priority.donator"))
-            return new Priority(2, text("Yellow", YELLOW).append(text(" donator access activated.", GREEN)));
-        else if (player.hasPermission("queue.priority.priority"))
-            return new Priority(1, text("Priority access activated.", GREEN));
-        else
-            return new Priority(0, empty());
+        for (Priority priority : QueuePlugin.instance().config().priorities()) {
+            if (player.hasPermission("queue.priority." + priority.name().toLowerCase(Locale.ROOT)))
+                return priority;
+        }
+
+        return new Priority("none", 0, Component.empty());
     }
 
-    public record Priority(int weight, Component message) {
-        public boolean premium() {
-            return weight >= 5;
-        }
+    public void recalculatePriority() {
+        // Recalculate the priority if it's set
+        if (this.priority != null)
+            this.priority = calculatePriority();
+    }
 
-        public boolean priority() {
-            return weight < 4 && weight > 0;
-        }
-
-        public boolean regular() {
-            return weight == 0;
-        }
-
-        public Queue.SubQueueType queueType() {
-            return switch (weight) {
-                case 1, 2, 3, 4 -> Queue.SubQueueType.PRIORITY;
-                case 5, 6 -> Queue.SubQueueType.PREMIUM;
-                default -> Queue.SubQueueType.REGULAR;
-            };
-        }
+    @Override
+    public @NotNull Audience audience() {
+        return player;
     }
 }

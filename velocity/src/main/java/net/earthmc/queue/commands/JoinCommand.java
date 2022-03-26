@@ -8,8 +8,9 @@ import net.earthmc.queue.QueuePlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 
 public class JoinCommand extends BaseCommand implements SimpleCommand {
 
@@ -27,12 +28,12 @@ public class JoinCommand extends BaseCommand implements SimpleCommand {
             return;
         }
 
-        if (!invocation.source().hasPermission("queue.join." + invocation.arguments()[0].toLowerCase()) && !invocation.source().hasPermission("queue.join.*")) {
-            source.sendMessage(Component.text("You do not have enough permissions to join this queue."));
+        String server = invocation.arguments()[0];
+        if (!invocation.source().hasPermission("queue.join." + server.toLowerCase()) && !invocation.source().hasPermission("queue.join.*")) {
+            source.sendMessage(Component.text(server + " is not a valid server.", NamedTextColor.RED));
             return;
         }
 
-        String server = invocation.arguments()[0];
         if (player.getCurrentServer().isPresent() && player.getCurrentServer().get().getServerInfo().getName().equalsIgnoreCase(server)) {
             player.sendMessage(Component.text("You are already connected to this server.", NamedTextColor.RED));
             return;
@@ -44,11 +45,20 @@ public class JoinCommand extends BaseCommand implements SimpleCommand {
             return;
         }
 
-        queue.enqueue(QueuePlugin.instance().queued(player));
+        boolean confirmation = invocation.arguments().length >= 2 && invocation.arguments()[1].equalsIgnoreCase("confirm");
+
+        // Remove autoqueue for this player
+        QueuePlugin.instance().removeAutoQueue(player);
+
+        queue.enqueue(QueuePlugin.instance().queued(player), confirmation);
     }
 
     @Override
-    public List<String> suggest(Invocation invocation) {
-        return Collections.emptyList();
+    public CompletableFuture<List<String>> suggestAsync(Invocation invocation) {
+        return CompletableFuture.supplyAsync(() -> {
+            List<String> servers = QueuePlugin.proxy().getAllServers().stream().map(server -> server.getServerInfo().getName().toLowerCase(Locale.ENGLISH)).toList();
+
+            return filterByPermission(invocation, servers, "queue.join.");
+        });
     }
 }

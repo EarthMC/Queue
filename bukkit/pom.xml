@@ -13,6 +13,7 @@
     <artifactId>queue-bukkit</artifactId>
 
     <name>Queue-Bukkit</name>
+    <version>0.0.2</version>
 
     <properties>
         <java.version>16</java.version>

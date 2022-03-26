@@ -1,0 +1,55 @@
+# Queue plugin config
+
+[autoqueue]
+# Delay in seconds after which a player will get autoqueued.
+delay = 60
+# The server that will be chosen as the default autoqueue target.
+default-target = "towny"
+autoqueue-server = "hub"
+
+[[priority]]
+name = "staff"
+weight = 6
+message = "<dark_green>Staff <green>access activated."
+
+[[priority]]
+name = "premium"
+weight = 5
+message = "<light_purple>Premium <green>access activated."
+
+[[priority]]
+name = "donator3"
+weight = 4
+message = "<blue>Blue <green>donator access activated."
+
+[[priority]]
+name = "donator2"
+weight = 3
+message = "<light_purple>Purple <green>donator access activated."
+
+[[priority]]
+name = "donator1"
+weight = 2
+message = "<yellow>Yellow <green>donator access activated."
+
+[[priority]]
+name = "priority"
+weight = 1
+message = "<green>Priority access activated."
+
+# All queues have 'subqueues', a player's priority weight will decide which they enter.
+# The min-weight is the weight that a player's priority must have to enter this subqueue.
+[[subqueue]]
+name = "regular"
+min-weight = 0
+sends = 1
+
+[[subqueue]]
+name = "priority"
+min-weight = 1
+sends = 1
+
+[[subqueue]]
+name = "premium"
+min-weight = 5
+sends = 3
