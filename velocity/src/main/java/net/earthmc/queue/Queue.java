@@ -11,7 +11,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.Vector;
@@ -153,9 +152,8 @@ public class Queue {
         for (QueuedPlayer player : queue.players) {
             rememberPosition(player);
 
-            Component message = Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players.size(), NamedTextColor.GREEN).append(Component.text(" for " + formattedName, NamedTextColor.YELLOW)))));
+            Component message = Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players.size(), NamedTextColor.GREEN).append(Component.text(" for " + formattedName + ".", NamedTextColor.YELLOW)))));
             player.player().sendMessage(message);
-            player.player().sendActionBar(message);
 
             if (player.position() < 3 && queue.players.size() > 20)
                 playSound(player.player());
@@ -213,7 +211,7 @@ public class Queue {
         QueuePlugin.debug("Added player " + player.player().getUsername() + " to subqueue " + queue.name + " at position " + index + ".");
 
         player.sendMessage(Component.text("You have joined the queue for " + formattedName + ".", NamedTextColor.GREEN));
-        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players.size(), NamedTextColor.GREEN)))));
+        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players.size(), NamedTextColor.GREEN)).append(Component.text(".", NamedTextColor.YELLOW)))));
 
         if (!player.priority().message().equals(Component.empty()))
             player.player().sendMessage(player.priority().message());

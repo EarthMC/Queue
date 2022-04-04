@@ -7,19 +7,22 @@ import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class QueuedPlayer implements ForwardingAudience.Single {
     private final Player player;
     private Queue queue;
     private Priority priority;
+    private String lastJoinedServer;
+    private boolean autoQueueDisabled;
+    private boolean dataLoaded;
+    private final UUID uuid;
 
     public QueuedPlayer(Player player) {
         this.player = player;
-    }
-
-    public QueuedPlayer(Player player, Queue queue) {
-        this.player = player;
-        queue.enqueue(this);
+        this.uuid = player.getUniqueId();
     }
 
     public Player player() {
@@ -74,5 +77,33 @@ public class QueuedPlayer implements ForwardingAudience.Single {
     @Override
     public @NotNull Audience audience() {
         return player;
+    }
+
+    public @NotNull UUID uuid() {
+        return this.uuid;
+    }
+
+    public CompletableFuture<Void> loadData() {
+        if (dataLoaded)
+            return CompletableFuture.completedFuture(null);
+
+        dataLoaded = true;
+        return QueuePlugin.instance().getStorage().loadSavedData(this);
+    }
+
+    public boolean isAutoQueueDisabled() {
+        return autoQueueDisabled;
+    }
+
+    public void setAutoQueueDisabled(boolean autoQueueDisabled) {
+        this.autoQueueDisabled = autoQueueDisabled;
+    }
+
+    public Optional<String> getLastJoinedServer() {
+        return Optional.ofNullable(lastJoinedServer);
+    }
+
+    public void setLastJoinedServer(String lastJoinedServer) {
+        this.lastJoinedServer = lastJoinedServer;
     }
 }

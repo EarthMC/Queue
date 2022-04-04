@@ -8,6 +8,7 @@ import net.earthmc.queue.QueuePlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
@@ -58,7 +59,10 @@ public class JoinCommand extends BaseCommand implements SimpleCommand {
         return CompletableFuture.supplyAsync(() -> {
             List<String> servers = QueuePlugin.proxy().getAllServers().stream().map(server -> server.getServerInfo().getName().toLowerCase(Locale.ENGLISH)).toList();
 
-            return filterByPermission(invocation, servers, "queue.join.");
+            if (invocation.arguments().length <= 1)
+                return filterByPermission(invocation.source(), servers, "queue.join.", invocation.arguments().length == 0 ? null : invocation.arguments()[0]);
+            else
+                return Collections.emptyList();
         });
     }
 }

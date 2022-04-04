@@ -1,6 +1,7 @@
 package net.earthmc.queue.storage;
 
 import net.earthmc.queue.QueuePlugin;
+import net.earthmc.queue.QueuedPlayer;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -8,9 +9,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
 import java.util.Properties;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class FlatFileStorage {
@@ -30,40 +29,42 @@ public class FlatFileStorage {
         }
     }
 
-    public CompletableFuture<Optional<String>> getLastJoinedServer(@NotNull UUID uuid) {
-        return CompletableFuture.supplyAsync(() -> {
+    public CompletableFuture<Void> loadSavedData(@NotNull QueuedPlayer player) {
+        return CompletableFuture.runAsync(() -> {
             try {
-                Path dataFile = dataFolderPath.resolve(uuid + ".txt");
+                Path dataFile = dataFolderPath.resolve(player.uuid() + ".txt");
 
                 if (!Files.exists(dataFile))
-                    return Optional.empty();
+                    return;
 
                 Properties properties = new Properties();
                 try (InputStream is = Files.newInputStream(dataFile)) {
                     properties.load(is);
-                    return Optional.of(properties.getProperty("lastJoined"));
+                    player.setAutoQueueDisabled(Boolean.parseBoolean(properties.getProperty("autoQueueDisabled", "false")));
+                    player.setLastJoinedServer(properties.getProperty("lastJoined", plugin.config().autoQueueSettings().defaultTarget()));
                 }
-            } catch (IOException e) {
-                return Optional.empty();
-            }
+            } catch (IOException ignored) {}
         });
     }
 
-    public void setLastJoinedServer(@NotNull UUID uuid, @NotNull String lastJoined) {
+    public void savePlayer(@NotNull QueuedPlayer player) {
         CompletableFuture.runAsync(() -> {
             try {
-                Path dataFile = dataFolderPath.resolve(uuid + ".txt");
+                Path dataFile = dataFolderPath.resolve(player.uuid() + ".txt");
 
                 if (!Files.exists(dataFile))
                     Files.createFile(dataFile);
 
                 Properties properties = new Properties();
-                properties.put("lastJoined", lastJoined);
+                properties.setProperty("lastJoined", player.getLastJoinedServer().orElse(plugin.config().autoQueueSettings().defaultTarget()));
+                properties.setProperty("autoQueueDisabled", String.valueOf(player.isAutoQueueDisabled()));
 
                 try (OutputStream os = Files.newOutputStream(dataFile)) {
                     properties.store(os, null);
                 }
-            } catch (IOException ignored) {}
+            } catch (IOException e) {
+                plugin.logger().error("An error occurred when saving data for " + player.uuid(), e);
+            }
         });
     }
 }

@@ -10,6 +10,7 @@ import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
@@ -17,6 +18,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
+import com.velocitypowered.api.proxy.server.ServerInfo;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import net.earthmc.queue.commands.JoinCommand;
 import net.earthmc.queue.commands.LeaveCommand;
@@ -33,10 +35,8 @@ import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -52,7 +52,6 @@ public class QueuePlugin {
     private boolean debug = false;
     private final FlatFileStorage storage;
     private final Map<UUID, ScheduledTask> scheduledTasks = new HashMap<>();
-    private final Set<UUID> autoQueued = new HashSet<>(); // Prevents players from being auto queued multiple times in a single "session".
 
     @Inject
     public QueuePlugin(ProxyServer proxy, CommandManager commandManager, Logger logger, @DataDirectory Path dataFolderPath) {
@@ -98,16 +97,19 @@ public class QueuePlugin {
             return;
 
         QueuedPlayer player = queuedPlayers.get(uuid);
-        if (player != null && player.isInQueue())
-            player.queue().remove(player);
+        if (player != null) {
+            if (player.isInQueue())
+                player.queue().remove(player);
+
+            event.getPlayer().getCurrentServer().ifPresent(server -> {
+                if (!server.getServerInfo().getName().equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()))
+                    player.setLastJoinedServer(server.getServerInfo().getName());
+            });
+
+            this.storage.savePlayer(player);
+        }
 
         queuedPlayers.remove(uuid);
-        autoQueued.remove(uuid);
-
-        event.getPlayer().getCurrentServer().ifPresent(server -> {
-            if (!server.getServerInfo().getName().equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()))
-                storage.setLastJoinedServer(uuid, server.getServerInfo().getName());
-        });
     }
 
     @Subscribe
@@ -118,29 +120,48 @@ public class QueuePlugin {
         if (player.isInQueue() && player.queue().getServer().getServerInfo().getName().equalsIgnoreCase(event.getServer().getServerInfo().getName()))
             player.queue().remove(player);
 
+        processAutoQueue(event, player);
+    }
+
+    public void processAutoQueue(ServerConnectedEvent event, QueuedPlayer player) {
+        if (player.isAutoQueueDisabled())
+            return;
+
+        if (event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE)
+            return;
+
+        if (!event.getServer().getServerInfo().getName().equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()))
+            return;
+
         final UUID uuid = event.getPlayer().getUniqueId();
 
-        // Ensure player has the queue.autoqueue permission and their current server is the autoqueue server.
-        if (event.getPlayer().hasPermission("queue.autoqueue") && event.getServer().getServerInfo().getName().equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()) && !scheduledTasks.containsKey(uuid) && !autoQueued.contains(uuid)) {
-            scheduledTasks.put(uuid, proxy().getScheduler().buildTask(this, () -> {
-                scheduledTasks.remove(uuid);
-                autoQueued.add(uuid);
-                this.storage.getLastJoinedServer(event.getPlayer().getUniqueId()).thenAccept(optTarget -> {
-                    String target = optTarget.orElse(config.autoQueueSettings().defaultTarget());
-                    String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
+        if (scheduledTasks.containsKey(uuid))
+            return;
 
-                    // Prevent the player from being auto queued to the srever they are already on
-                    if (target.equalsIgnoreCase(currentServerName))
-                        return;
+        scheduledTasks.put(uuid, proxy().getScheduler().buildTask(this, () -> {
+            scheduledTasks.remove(uuid);
 
-                    Queue queue = queue(target);
-                    if (queue != null) {
-                        event.getPlayer().sendMessage(Component.text("You are being automatically queued for " + queue.getServerFormatted() + ".", NamedTextColor.GREEN));
-                        queue.enqueue(player);
-                    }
-                });
-            }).delay(config.autoQueueSettings().delay(), TimeUnit.SECONDS).schedule());
-        }
+            player.loadData().thenRunAsync(() -> {
+                String target = player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget());
+                final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
+
+                // Validate that the target is known to the proxy
+                target = proxy.getServer(target).map(server -> server.getServerInfo().getName())
+                        .filter(name -> !name.equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()))
+                        .orElse(config.autoQueueSettings().defaultTarget());
+
+                // Prevent the player from being auto queued to the server they are already on
+                if (target.equalsIgnoreCase(currentServerName))
+                    return;
+
+                Queue queue = queue(target);
+                if (queue != null) {
+                    debug(event.getPlayer().getUsername() + " has been automatically queued for " + target + ".");
+                    event.getPlayer().sendMessage(Component.text("You are being automatically queued for " + queue.getServerFormatted() + ".", NamedTextColor.GREEN));
+                    queue.enqueue(player);
+                }
+            });
+        }).delay(config.autoQueueSettings().delay(), TimeUnit.SECONDS).schedule());
     }
 
     public void removeAutoQueue(Player player) {
@@ -167,7 +188,7 @@ public class QueuePlugin {
             String name = input.readUTF();
             String target = input.readUTF();
 
-            proxy.getPlayer(name).ifPresent(player -> proxy.getCommandManager().executeAsync(player, "joinqueue " + target));
+            proxy.getPlayer(name).ifPresent(player -> proxy.getCommandManager().executeAsync(player, "joinqueue " + target + " confirm"));
         }
     }
 

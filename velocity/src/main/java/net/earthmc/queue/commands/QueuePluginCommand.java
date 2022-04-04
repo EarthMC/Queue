@@ -2,18 +2,21 @@ package net.earthmc.queue.commands;
 
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
+import com.velocitypowered.api.proxy.Player;
 import net.earthmc.queue.QueuePlugin;
+import net.earthmc.queue.QueuedPlayer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public class QueuePluginCommand extends BaseCommand implements SimpleCommand {
     private final QueuePlugin plugin;
-    private final List<String> arguments = Arrays.asList("reload", "info");
+    private final List<String> arguments = Arrays.asList("reload", "info", "autoqueue");
 
     public QueuePluginCommand(QueuePlugin plugin) {
         this.plugin = plugin;
@@ -27,7 +30,7 @@ public class QueuePluginCommand extends BaseCommand implements SimpleCommand {
         }
 
         String arg = invocation.arguments()[0].toLowerCase(Locale.ROOT);
-        if (!invocation.source().hasPermission("queue." + arg) && !invocation.source().hasPermission("queue.*")) {
+        if (!hasPrefixedPermission(invocation.source(), "queue.command.queueplugin.", arg)) {
             invocation.source().sendMessage(Component.text("You do not have enough permissions to use this command.", NamedTextColor.RED));
             return;
         }
@@ -40,6 +43,22 @@ public class QueuePluginCommand extends BaseCommand implements SimpleCommand {
                     invocation.source().sendMessage(Component.text("Successfully reloaded the config.", NamedTextColor.GREEN));
             }
             case "info" -> parseQueueInfo(invocation.source());
+            case "autoqueue" -> {
+                if (!(invocation.source() instanceof Player player)) {
+                    invocation.source().sendMessage(Component.text("This command cannot be used by console.", NamedTextColor.RED));
+                    return;
+                }
+
+                QueuedPlayer queuedPlayer = plugin.queued(player);
+
+                queuedPlayer.loadData().thenRun(() -> {
+                    queuedPlayer.setAutoQueueDisabled(!queuedPlayer.isAutoQueueDisabled());
+                    player.sendMessage(Component.text("Autoqueue is now ", NamedTextColor.GOLD)
+                            .append(Component.text(queuedPlayer.isAutoQueueDisabled() ? "disabled" : "enabled",
+                                    queuedPlayer.isAutoQueueDisabled() ? NamedTextColor.DARK_RED : NamedTextColor.DARK_GREEN))
+                            .append(Component.text(".", NamedTextColor.GOLD)));
+                });
+            }
         }
     }
 
@@ -49,6 +68,11 @@ public class QueuePluginCommand extends BaseCommand implements SimpleCommand {
 
     @Override
     public CompletableFuture<List<String>> suggestAsync(Invocation invocation) {
-        return CompletableFuture.supplyAsync(() -> filterByPermission(invocation, Arrays.asList("reload", "info"), "queue."));
+        return CompletableFuture.supplyAsync(() -> {
+            if (invocation.arguments().length <= 1)
+                return filterByPermission(invocation.source(), Arrays.asList("reload", "info", "autoqueue"), "queue.", invocation.arguments().length == 0 ? null : invocation.arguments()[0]);
+            else
+                return Collections.emptyList();
+        });
     }
 }
