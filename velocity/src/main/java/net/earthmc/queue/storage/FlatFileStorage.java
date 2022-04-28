@@ -1,5 +1,6 @@
 package net.earthmc.queue.storage;
 
+import com.google.common.collect.Maps;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
 import org.jetbrains.annotations.NotNull;
@@ -14,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
 
 public class FlatFileStorage {
     private final QueuePlugin plugin;
-    private final Path dataFolderPath; // Path to velocity root/queue/data
+    private final Path dataFolderPath; // Path to velocity /plugins/queue/data
 
     public FlatFileStorage(QueuePlugin plugin, Path dataFolderPath) {
         this.plugin = plugin;
@@ -40,8 +41,7 @@ public class FlatFileStorage {
                 Properties properties = new Properties();
                 try (InputStream is = Files.newInputStream(dataFile)) {
                     properties.load(is);
-                    player.setAutoQueueDisabled(Boolean.parseBoolean(properties.getProperty("autoQueueDisabled", "false")));
-                    player.setLastJoinedServer(properties.getProperty("lastJoined", plugin.config().autoQueueSettings().defaultTarget()));
+                    player.getSettings().putAll(Maps.fromProperties(properties));
                 }
             } catch (IOException ignored) {}
         });
@@ -56,8 +56,7 @@ public class FlatFileStorage {
                     Files.createFile(dataFile);
 
                 Properties properties = new Properties();
-                properties.setProperty("lastJoined", player.getLastJoinedServer().orElse(plugin.config().autoQueueSettings().defaultTarget()));
-                properties.setProperty("autoQueueDisabled", String.valueOf(player.isAutoQueueDisabled()));
+                properties.putAll(player.getSettings());
 
                 try (OutputStream os = Files.newOutputStream(dataFile)) {
                     properties.store(os, null);

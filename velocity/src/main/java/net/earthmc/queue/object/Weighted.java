@@ -13,6 +13,10 @@ public class Weighted implements Comparable<Weighted> {
         this.weight = weight;
     }
 
+    public int weight() {
+        return this.weight;
+    }
+
     @Override
     public int compareTo(@NotNull Weighted other) {
         return comparator.compare(this, other);

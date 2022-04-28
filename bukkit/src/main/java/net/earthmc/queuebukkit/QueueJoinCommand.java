@@ -10,8 +10,6 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.nio.charset.StandardCharsets;
-
 public class QueueJoinCommand implements CommandExecutor {
 
     private final QueueBukkit plugin;
@@ -21,6 +19,7 @@ public class QueueJoinCommand implements CommandExecutor {
     }
 
     @Override
+    @SuppressWarnings("UnstableApiUsage")
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (!(sender instanceof ConsoleCommandSender))
             return true;

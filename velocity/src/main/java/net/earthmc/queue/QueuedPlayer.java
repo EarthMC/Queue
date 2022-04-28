@@ -5,30 +5,38 @@ import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.ForwardingAudience;
 import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class QueuedPlayer implements ForwardingAudience.Single {
-    private final Player player;
+    private static final Priority NONE_PRIORITY = new Priority("none", 0, Component.empty());
+
+    private final UUID uuid;
+    private final String name;
     private Queue queue;
     private Priority priority;
-    private String lastJoinedServer;
-    private boolean autoQueueDisabled;
-    private boolean dataLoaded;
-    private final UUID uuid;
+    private final Map<String, Object> settings = new HashMap<>(0);
 
-    public QueuedPlayer(Player player) {
-        this.player = player;
+    public QueuedPlayer(@NotNull Player player) {
         this.uuid = player.getUniqueId();
+        this.name = player.getUsername();
     }
 
+    @Nullable
     public Player player() {
-        return player;
+        return QueuePlugin.proxy().getPlayer(this.uuid).orElse(null);
     }
 
+    /**
+     * @return The player's priority, calculating it if required.
+     */
+    @NotNull
     public Priority priority() {
         if (priority == null)
             priority = calculatePriority();
@@ -36,11 +44,15 @@ public class QueuedPlayer implements ForwardingAudience.Single {
         return priority;
     }
 
+    /**
+     * Gets the player's current position in their sub queue, or -1 if they are not in a queue.
+     * @return -1 or the player's sub queue position
+     */
     public int position() {
         if (queue == null)
             return -1;
 
-        return queue.getSubQueue(this).players.indexOf(this);
+        return queue.getSubQueue(this).players().indexOf(this);
     }
 
     public boolean isInQueue() {
@@ -60,12 +72,17 @@ public class QueuedPlayer implements ForwardingAudience.Single {
     }
 
     private @NotNull Priority calculatePriority() {
+        Player player = player();
+
+        if (player == null)
+            return NONE_PRIORITY;
+
         for (Priority priority : QueuePlugin.instance().config().priorities()) {
             if (player.hasPermission("queue.priority." + priority.name().toLowerCase(Locale.ROOT)))
                 return priority;
         }
 
-        return new Priority("none", 0, Component.empty());
+        return NONE_PRIORITY;
     }
 
     public void recalculatePriority() {
@@ -76,34 +93,43 @@ public class QueuedPlayer implements ForwardingAudience.Single {
 
     @Override
     public @NotNull Audience audience() {
-        return player;
+        return QueuePlugin.proxy().getPlayer(this.uuid).map(player -> (Audience) player).orElse(Audience.empty());
     }
 
-    public @NotNull UUID uuid() {
+    @NotNull
+    public UUID uuid() {
         return this.uuid;
     }
 
+    @NotNull
+    public String name() {
+        return this.name;
+    }
+
     public CompletableFuture<Void> loadData() {
-        if (dataLoaded)
+        if (!settings.isEmpty())
             return CompletableFuture.completedFuture(null);
 
-        dataLoaded = true;
-        return QueuePlugin.instance().getStorage().loadSavedData(this);
+        return QueuePlugin.instance().storage().loadSavedData(this);
     }
 
     public boolean isAutoQueueDisabled() {
-        return autoQueueDisabled;
+        return Boolean.parseBoolean(String.valueOf(this.settings.getOrDefault("autoQueueDisabled", "false")));
     }
 
     public void setAutoQueueDisabled(boolean autoQueueDisabled) {
-        this.autoQueueDisabled = autoQueueDisabled;
+        this.settings.put("autoQueueDisabled", autoQueueDisabled);
     }
 
     public Optional<String> getLastJoinedServer() {
-        return Optional.ofNullable(lastJoinedServer);
+        return Optional.ofNullable(String.valueOf(this.settings.get("lastJoined")));
     }
 
-    public void setLastJoinedServer(String lastJoinedServer) {
-        this.lastJoinedServer = lastJoinedServer;
+    public void setLastJoinedServer(@NotNull String lastJoinedServer) {
+        this.settings.put("lastJoined", lastJoinedServer);
+    }
+
+    public Map<String, Object> getSettings() {
+        return this.settings;
     }
 }

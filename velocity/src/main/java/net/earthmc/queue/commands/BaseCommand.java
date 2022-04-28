@@ -1,6 +1,5 @@
 package net.earthmc.queue.commands;
 
-import com.velocitypowered.api.command.SimpleCommand.Invocation;
 import com.velocitypowered.api.permission.PermissionSubject;
 import com.velocitypowered.api.permission.Tristate;
 import org.jetbrains.annotations.NotNull;

@@ -41,7 +41,11 @@ public class QueueConfig {
         plugin.setDebug(config.getBoolean("debug", false));
 
         Toml autoQueueConfig = config.getTable("autoqueue");
-        this.autoQueueSettings = new AutoQueueSettings(autoQueueConfig.getLong("delay"), autoQueueConfig.getString("default-target"), autoQueueConfig.getString("autoqueue-server"));
+        this.autoQueueSettings = new AutoQueueSettings(
+                autoQueueConfig.getLong("delay"),
+                autoQueueConfig.getString("default-target"),
+                autoQueueConfig.getString("autoqueue-server")
+        );
 
         for (Toml priority : config.getTables("priority")) {
             String name = priority.getString("name", "none");
@@ -102,7 +106,12 @@ public class QueueConfig {
     }
 
     public Set<SubQueue> newSubQueues() {
-        return new ConcurrentSkipListSet<>(this.subQueues);
+        Set<SubQueue> newSubQueues = new ConcurrentSkipListSet<>();
+
+        for (SubQueue subQueue : this.subQueues)
+            newSubQueues.add(new SubQueue(subQueue.name(), subQueue.weight(), subQueue.maxSends()));
+
+        return newSubQueues;
     }
 
     public Set<Priority> priorities() {

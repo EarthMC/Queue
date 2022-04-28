@@ -18,9 +18,9 @@ public class QueueTests {
         SubQueue premium = new SubQueue("premium", 5, 3);
 
         QueuedPlayer mockPlayer = Mockito.mock(QueuedPlayer.class);
-        regular.players.add(mockPlayer);
-        priority.players.add(mockPlayer);
-        premium.players.add(mockPlayer);
+        regular.addPlayer(mockPlayer);
+        priority.addPlayer(mockPlayer);
+        premium.addPlayer(mockPlayer);
 
         Set<SubQueue> subQueues = new ConcurrentSkipListSet<>();
         subQueues.add(regular);
@@ -51,9 +51,9 @@ public class QueueTests {
         SubQueue premium = new SubQueue("premium", 5, 3);
 
         QueuedPlayer mockPlayer = Mockito.mock(QueuedPlayer.class);
-        regular.players.add(mockPlayer);
-        priority.players.add(mockPlayer);
-        premium.players.add(mockPlayer);
+        regular.addPlayer(mockPlayer);
+        priority.addPlayer(mockPlayer);
+        premium.addPlayer(mockPlayer);
 
         Set<SubQueue> subQueues = new ConcurrentSkipListSet<>();
         subQueues.add(regular);
@@ -91,7 +91,7 @@ public class QueueTests {
 
         // Add a player to the priority queue
         QueuedPlayer mockPlayer = Mockito.mock(QueuedPlayer.class);
-        priority.players.add(mockPlayer);
+        priority.addPlayer(mockPlayer);
         Assertions.assertEquals(priority, queue.getNextSubQueue(false));
         Assertions.assertEquals(regular, queue.getNextSubQueue(false));
         Assertions.assertEquals(priority, queue.getNextSubQueue(false));

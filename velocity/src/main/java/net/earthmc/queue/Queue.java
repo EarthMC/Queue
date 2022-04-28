@@ -75,27 +75,28 @@ public class Queue {
         if (failedAttempts >= 5) {
             pause(true, Instant.now().plusSeconds(30));
             for (QueuedPlayer player : allPlayers())
-                player.player().sendMessage(Component.text("Queue is paused for 30 seconds as the target server refused the last 5 players.", NamedTextColor.RED));
+                player.sendMessage(Component.text("Queue is paused for 30 seconds as the target server refused the last 5 players.", NamedTextColor.RED));
 
             return;
         }
 
         // Gets the queue to send the next player from.
         SubQueue queue = getNextSubQueue(false);
-        QueuedPlayer toSend = queue.players.remove(0);
+        QueuedPlayer toSend = queue.removePlayer(0);
         toSend.queue(null);
         rememberPosition(toSend, 0);
         Player player = toSend.player();
 
+        // The player is null or the player's connection is no longer active, return
         if (player == null || !player.isActive())
             return;
 
-        if (player.getCurrentServer().isPresent())
-            if (player.getCurrentServer().get().getServerInfo().getName().equalsIgnoreCase(server.getServerInfo().getName()))
-                return;
+        // Make sure the server the player is being sent to isn't the one they're currently on
+        if (player.getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown").equalsIgnoreCase(this.name))
+            return;
 
         player.sendMessage(Component.text("You are being sent to " + formattedName + "...", NamedTextColor.GREEN));
-        QueuePlugin.debug("Sending " + player.getUsername() + " to " + formattedName + " via the " + queue.name + " queue.");
+        QueuePlugin.debug("Sending " + player.getUsername() + " to " + formattedName + " via the " + queue.name()+ " queue.");
 
         player.createConnectionRequest(server).connect().thenAccept(result -> {
             if (result.isSuccessful()) {
@@ -122,7 +123,7 @@ public class Queue {
             player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
             player.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));
             toSend.queue(this);
-            queue.players.add(0, toSend);
+            queue.addPlayer(toSend, 0);
             failedAttempts++;
             return null;
         });
@@ -138,33 +139,33 @@ public class Queue {
         }
 
         return !paused && hasPlayers()
-                && !getNextSubQueue(true).players.isEmpty()
+                && !getNextSubQueue(true).players().isEmpty()
                 && server.getPlayersConnected().size() < maxPlayers
                 && lastSendTime.plus(TIME_BETWEEN_SENDS).isBefore(Instant.now());
     }
 
     public void sendProgressMessages(SubQueue queue) {
-        if (queue.lastPositionMessageTime.plusSeconds(3).isAfter(Instant.now()))
+        if (queue.lastPositionMessageTime().plusSeconds(3).isAfter(Instant.now()))
             return;
 
-        queue.lastPositionMessageTime = Instant.now();
+        queue.lastPositionMessageTime(Instant.now());
 
-        for (QueuedPlayer player : queue.players) {
+        for (QueuedPlayer player : queue.players()) {
             rememberPosition(player);
 
-            Component message = Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players.size(), NamedTextColor.GREEN).append(Component.text(" for " + formattedName + ".", NamedTextColor.YELLOW)))));
-            player.player().sendMessage(message);
+            Component message = Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players().size(), NamedTextColor.GREEN).append(Component.text(" for " + formattedName + ".", NamedTextColor.YELLOW)))));
+            player.sendMessage(message);
 
-            if (player.position() < 3 && queue.players.size() > 20)
+            if (player.position() < 3 && queue.players().size() > 20)
                 playSound(player.player());
 
             if (paused)
-                player.player().sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
+                player.sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
         }
     }
 
     public void playSound(Player player) {
-        if (player.getCurrentServer().isEmpty())
+        if (player == null || player.getCurrentServer().isEmpty())
             return;
 
         player.getCurrentServer().get().sendPluginMessage(() -> "queue:sound", player.getUsername().getBytes(StandardCharsets.UTF_8));
@@ -175,7 +176,7 @@ public class Queue {
     }
 
     public void rememberPosition(QueuedPlayer player, int index) {
-        rememberedPlayers.put(player.player().getUniqueId(), index);
+        rememberedPlayers.put(player.uuid(), index);
     }
 
     public void enqueue(QueuedPlayer player) {
@@ -185,7 +186,7 @@ public class Queue {
     public void enqueue(QueuedPlayer player, boolean confirmation) {
         if (player.queue() != null) {
             if (player.queue().equals(this)) {
-                player.player().sendMessage(Component.text("You are already queued for this server.", NamedTextColor.RED));
+                player.sendMessage(Component.text("You are already queued for this server.", NamedTextColor.RED));
                 return;
             } else {
                 if (!confirmation) {
@@ -193,52 +194,50 @@ public class Queue {
                     return;
                 } else {
                     player.sendMessage(Component.text("You have been removed from the queue for " + player.queue().getServerFormatted() + ".", NamedTextColor.RED));
-                    QueuePlugin.log(player.player().getUsername() + " has been removed from the queue, because they tried to join another.");
+                    QueuePlugin.log(player.name() + " has been removed from the queue, because they queued for another.");
                     player.queue().remove(player);
                 }
             }
         }
 
-        SubQueue queue = getSubQueue(player);
+        SubQueue subQueue = getSubQueue(player);
         player.queue(this);
 
-        int index = insertionIndex(player, queue);
-        if (index < 0 || index >= queue.players.size())
-            queue.players.add(player);
+        int index = insertionIndex(player, subQueue);
+        if (index < 0 || index >= subQueue.players().size())
+            subQueue.addPlayer(player);
         else
-            queue.players.add(index, player);
-
-        QueuePlugin.debug("Added player " + player.player().getUsername() + " to subqueue " + queue.name + " at position " + index + ".");
+            subQueue.addPlayer(player, index);
 
         player.sendMessage(Component.text("You have joined the queue for " + formattedName + ".", NamedTextColor.GREEN));
-        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players.size(), NamedTextColor.GREEN)).append(Component.text(".", NamedTextColor.YELLOW)))));
+        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(subQueue.players().size(), NamedTextColor.GREEN)).append(Component.text(".", NamedTextColor.YELLOW)))));
 
         if (!player.priority().message().equals(Component.empty()))
-            player.player().sendMessage(player.priority().message());
+            player.sendMessage(player.priority().message());
 
         if (paused)
-            player.player().sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
+            player.sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
     }
 
-    public int insertionIndex(QueuedPlayer player, SubQueue queue) {
-        if (queue.players.isEmpty())
+    public int insertionIndex(QueuedPlayer player, SubQueue subQueue) {
+        if (subQueue.players().isEmpty())
             return 0;
 
-        int rememberedPosition = queue.players.size();
-        if (rememberedPlayers.getIfPresent(player.player().getUniqueId()) != null)
-            rememberedPosition = Math.min(rememberedPlayers.getIfPresent(player.player().getUniqueId()), queue.players.size());
+        int rememberedPosition = subQueue.players().size();
+        if (rememberedPlayers.getIfPresent(player.uuid()) != null)
+            rememberedPosition = Math.min(rememberedPlayers.getIfPresent(player.uuid()), subQueue.players().size());
 
         int weight = player.priority().weight;
         if (weight == 0)
             return rememberedPosition;
 
         int slot = 0;
-        for (int i = 0; i < queue.players.size(); i++) {
-            if (weight <= queue.players.get(i).priority().weight)
+        for (int i = 0; i < subQueue.players().size(); i++) {
+            if (weight <= subQueue.getPlayer(i).priority().weight)
                 slot = i+1;
         }
 
-        int priorityIndex = Math.min(slot, queue.players.size());
+        int priorityIndex = Math.min(slot, subQueue.players().size());
 
         return Math.min(rememberedPosition, priorityIndex);
     }
@@ -247,13 +246,13 @@ public class Queue {
         rememberPosition(player);
         player.queue(null);
 
-        for (SubQueue queue : this.subQueues)
-            queue.players.remove(player);
+        for (SubQueue subQueue : this.subQueues)
+            subQueue.removePlayer(player);
     }
 
     public boolean hasPlayer(QueuedPlayer player) {
-        for (SubQueue queue : this.subQueues)
-            if (queue.players().contains(player))
+        for (SubQueue subQueue : this.subQueues)
+            if (subQueue.hasPlayer(player))
                 return true;
 
         return false;
@@ -261,7 +260,7 @@ public class Queue {
 
     public boolean hasPlayers() {
         for (SubQueue subQueue : this.subQueues)
-            if (!subQueue.players.isEmpty())
+            if (!subQueue.players().isEmpty())
                 return true;
 
         return false;
@@ -272,7 +271,7 @@ public class Queue {
      * @return The queue to send the next player from.
      */
     public SubQueue getNextSubQueue(boolean dry) {
-        return this.subQueueRatio.next(dry, (subQueue) -> !subQueue.players.isEmpty(), getRegularQueue());
+        return this.subQueueRatio.next(dry, (subQueue) -> !subQueue.players().isEmpty(), getRegularQueue());
     }
 
     public SubQueue getSubQueue(QueuedPlayer player) {

@@ -2,7 +2,7 @@
 
 [autoqueue]
 # Delay in seconds after which a player will get autoqueued.
-delay = 60
+delay = 90
 # The server that will be chosen as the default autoqueue target.
 default-target = "towny"
 autoqueue-server = "hub"
