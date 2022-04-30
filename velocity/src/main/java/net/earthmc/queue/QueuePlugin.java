@@ -20,7 +20,6 @@ import net.earthmc.queue.commands.JoinCommand;
 import net.earthmc.queue.commands.LeaveCommand;
 import net.earthmc.queue.commands.PauseCommand;
 import net.earthmc.queue.commands.QueueCommand;
-import net.earthmc.queue.commands.QueuePluginCommand;
 import net.earthmc.queue.config.QueueConfig;
 import net.earthmc.queue.storage.FlatFileStorage;
 import net.earthmc.queue.storage.SQLStorage;
