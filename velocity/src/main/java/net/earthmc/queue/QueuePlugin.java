@@ -1,22 +1,19 @@
 package net.earthmc.queue;
 
-import com.google.common.io.ByteArrayDataInput;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
-import com.velocitypowered.api.event.command.PlayerAvailableCommandsEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
-import com.velocitypowered.api.event.connection.PluginMessageEvent;
+import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import com.velocitypowered.api.proxy.ServerConnection;
-import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import net.earthmc.queue.commands.JoinCommand;
@@ -26,6 +23,8 @@ import net.earthmc.queue.commands.QueueCommand;
 import net.earthmc.queue.commands.QueuePluginCommand;
 import net.earthmc.queue.config.QueueConfig;
 import net.earthmc.queue.storage.FlatFileStorage;
+import net.earthmc.queue.storage.SQLStorage;
+import net.earthmc.queue.storage.Storage;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.jetbrains.annotations.Nullable;
@@ -43,32 +42,34 @@ import java.util.concurrent.TimeUnit;
 @Plugin(id = "queue", name = "Queue", version = "0.1.0", authors = {"Warriorrr"})
 public class QueuePlugin {
 
-    private static ProxyServer proxy;
     private static QueuePlugin instance;
+    private final ProxyServer proxy;
     private final Logger logger;
     private final Map<String, Queue> queues = new ConcurrentHashMap<>();
     private final Map<UUID, QueuedPlayer> queuedPlayers = new HashMap<>();
     private final QueueConfig config;
     private boolean debug = false;
-    private final FlatFileStorage storage;
+    private final Storage storage;
     private final Map<UUID, ScheduledTask> scheduledTasks = new ConcurrentHashMap<>();
 
     @Inject
     public QueuePlugin(ProxyServer proxy, CommandManager commandManager, Logger logger, @DataDirectory Path dataFolderPath) {
         QueuePlugin.instance = this;
-        QueuePlugin.proxy = proxy;
+        this.proxy = proxy;
         this.logger = logger;
         this.config = new QueueConfig(this, dataFolderPath);
         this.config.load();
 
-        this.storage = new FlatFileStorage(this, dataFolderPath.resolve("data"));
+        this.storage = config.getStorageType().equalsIgnoreCase("sql")
+                ? new SQLStorage(this)
+                : new FlatFileStorage(this, dataFolderPath.resolve("data"));
 
-        commandManager.register("joinqueue", new JoinCommand());
+        this.storage.enable();
+
+        commandManager.register("joinqueue", new JoinCommand(this));
         commandManager.register("leavequeue", new LeaveCommand());
         commandManager.register("pausequeue", new PauseCommand());
-        commandManager.register("queue", new QueueCommand());
-        commandManager.register("qp", new QueuePluginCommand(this));
-        proxy.getChannelRegistrar().register(MinecraftChannelIdentifier.create("queue", "join"));
+        commandManager.register("queue", new QueueCommand(this));
     }
 
     @Subscribe
@@ -89,6 +90,18 @@ public class QueuePlugin {
     }
 
     @Subscribe
+    public void onProxyShutdown(ProxyShutdownEvent event) {
+        if (this.storage != null)
+            this.storage.disable();
+    }
+
+    @Subscribe
+    public void onPlayerJoin(PostLoginEvent event) {
+        // Load saved data for this player async upon login.
+        queued(event.getPlayer()).loadData();
+    }
+
+    @Subscribe
     public void onPlayerLeave(DisconnectEvent event) {
         final UUID uuid = event.getPlayer().getUniqueId();
 
@@ -106,10 +119,11 @@ public class QueuePlugin {
         }
 
         queuedPlayers.remove(uuid);
+        removeAutoQueue(event.getPlayer());
     }
 
     @Subscribe
-    public void onPlayerJoin(ServerConnectedEvent event) {
+    public void onServerConnect(ServerConnectedEvent event) {
         QueuedPlayer player = queued(event.getPlayer());
 
         // Remove the player from their queue if their queue is for the server they just joined.
@@ -122,38 +136,36 @@ public class QueuePlugin {
     public void processAutoQueue(ServerConnectedEvent event, QueuedPlayer player) {
         final UUID uuid = event.getPlayer().getUniqueId();
 
-        player.loadData().thenRunAsync(() -> {
-            if (
-                    player.isAutoQueueDisabled() // Player has auto queue disabled
-                    || scheduledTasks.containsKey(uuid) // There's already a scheduled auto queue task for this player
-                    || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE // The player has the auto queue permission explicitly set to false
-                    || !event.getServer().getServerInfo().getName().equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()) // The player isn't on the auto queue server
-            )
+        if (
+                player.isAutoQueueDisabled() // Player has auto queue disabled
+                || scheduledTasks.containsKey(uuid) // There's already a scheduled auto queue task for this player
+                || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE // The player has the auto queue permission explicitly set to false
+                || !event.getServer().getServerInfo().getName().equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()) // The player isn't on the auto queue server
+        )
+            return;
+
+        scheduledTasks.put(uuid, proxy().getScheduler().buildTask(this, () -> {
+            scheduledTasks.remove(uuid);
+
+            String target = player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget());
+            final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
+
+            // Validate that the target is known to the proxy
+            target = proxy.getServer(target).map(server -> server.getServerInfo().getName())
+                .filter(name -> !name.equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()))
+                .orElse(config.autoQueueSettings().defaultTarget());
+
+            // Prevent the player from being auto queued to the server they are already on
+            if (target.equalsIgnoreCase(currentServerName))
                 return;
 
-            scheduledTasks.put(uuid, proxy().getScheduler().buildTask(this, () -> {
-                scheduledTasks.remove(uuid);
-
-                String target = player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget());
-                final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
-
-                // Validate that the target is known to the proxy
-                target = proxy.getServer(target).map(server -> server.getServerInfo().getName())
-                        .filter(name -> !name.equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()))
-                        .orElse(config.autoQueueSettings().defaultTarget());
-
-                // Prevent the player from being auto queued to the server they are already on
-                if (target.equalsIgnoreCase(currentServerName))
-                    return;
-
-                Queue queue = queue(target);
-                if (queue != null) {
-                    debug(event.getPlayer().getUsername() + " has been automatically queued for " + target + ".");
-                    event.getPlayer().sendMessage(Component.text("You are being automatically queued for " + queue.getServerFormatted() + ".", NamedTextColor.GREEN));
-                    queue.enqueue(player);
-                }
-            }).delay(config.autoQueueSettings().delay(), TimeUnit.SECONDS).schedule());
-        });
+            Queue queue = queue(target);
+            if (queue != null) {
+                debug(event.getPlayer().getUsername() + " has been automatically queued for " + target + ".");
+                event.getPlayer().sendMessage(Component.text("You are being automatically queued for " + queue.getServerFormatted() + ".", NamedTextColor.GREEN));
+                queue.enqueue(player);
+            }
+        }).delay(config.autoQueueSettings().delay(), TimeUnit.SECONDS).schedule());
     }
 
     public void removeAutoQueue(Player player) {
@@ -170,28 +182,6 @@ public class QueuePlugin {
         event.setResult(KickedFromServerEvent.DisconnectPlayer.create(reason));
     }
 
-    @Subscribe
-    public void onPluginMessageReceived(PluginMessageEvent event) {
-        if (!(event.getSource() instanceof ServerConnection))
-            return;
-
-        if (event.getIdentifier().getId().equals("queue:join")) {
-            ByteArrayDataInput input = event.dataAsDataStream();
-            String name = input.readUTF();
-            String target = input.readUTF();
-
-            proxy.getPlayer(name).ifPresent(player -> proxy.getCommandManager().executeAsync(player, "joinqueue " + target + " confirm"));
-        }
-    }
-
-    @Subscribe
-    @SuppressWarnings("UnstableApiUsage")
-    public void onCommandsReceive(PlayerAvailableCommandsEvent event) {
-        // Hide this command from players in order to prevent confusion in tab completions
-        event.getRootNode().removeChildByName("queuejoin");
-        event.getRootNode().removeChildByName("queuebukkit:queuejoin");
-    }
-
     public Map<String, Queue> queues() {
         return queues;
     }
@@ -200,8 +190,8 @@ public class QueuePlugin {
         return instance;
     }
 
-    public static ProxyServer proxy() {
-        return proxy;
+    public ProxyServer proxy() {
+        return this.proxy;
     }
 
     @Nullable
@@ -223,7 +213,7 @@ public class QueuePlugin {
     }
 
     public QueuedPlayer queued(Player player) {
-        queuedPlayers.computeIfAbsent(player.getUniqueId(), k -> new QueuedPlayer(player));
+        queuedPlayers.putIfAbsent(player.getUniqueId(), new QueuedPlayer(player));
 
         return queuedPlayers.get(player.getUniqueId());
     }
@@ -257,7 +247,7 @@ public class QueuePlugin {
         return this.config;
     }
 
-    public FlatFileStorage storage() {
+    public Storage storage() {
         return storage;
     }
 }

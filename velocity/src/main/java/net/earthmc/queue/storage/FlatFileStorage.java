@@ -1,6 +1,5 @@
 package net.earthmc.queue.storage;
 
-import com.google.common.collect.Maps;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
 import org.jetbrains.annotations.NotNull;
@@ -13,7 +12,7 @@ import java.nio.file.Path;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 
-public class FlatFileStorage {
+public class FlatFileStorage extends Storage {
     private final QueuePlugin plugin;
     private final Path dataFolderPath; // Path to velocity /plugins/queue/data
 
@@ -30,8 +29,8 @@ public class FlatFileStorage {
         }
     }
 
-    public CompletableFuture<Void> loadSavedData(@NotNull QueuedPlayer player) {
-        return CompletableFuture.runAsync(() -> {
+    public void loadPlayer(@NotNull QueuedPlayer player) {
+        CompletableFuture.runAsync(() -> {
             try {
                 Path dataFile = dataFolderPath.resolve(player.uuid() + ".txt");
 
@@ -41,7 +40,8 @@ public class FlatFileStorage {
                 Properties properties = new Properties();
                 try (InputStream is = Files.newInputStream(dataFile)) {
                     properties.load(is);
-                    player.getSettings().putAll(Maps.fromProperties(properties));
+                    player.setAutoQueueDisabled(Boolean.parseBoolean(properties.getProperty("autoQueueDisabled", "false")));
+                    player.setLastJoinedServer(properties.getProperty("lastJoinedServer"));
                 }
             } catch (IOException ignored) {}
         });
@@ -52,11 +52,14 @@ public class FlatFileStorage {
             try {
                 Path dataFile = dataFolderPath.resolve(player.uuid() + ".txt");
 
-                if (!Files.exists(dataFile))
-                    Files.createFile(dataFile);
-
                 Properties properties = new Properties();
-                properties.putAll(player.getSettings());
+                if (player.getLastJoinedServer().isPresent())
+                    properties.setProperty("lastJoinedServer", player.getLastJoinedServer().get());
+
+                properties.setProperty("autoQueueDisabled", String.valueOf(player.isAutoQueueDisabled()));
+
+                QueuePlugin.debug("reached");
+                QueuePlugin.debug(properties.toString());
 
                 try (OutputStream os = Files.newOutputStream(dataFile)) {
                     properties.store(os, null);

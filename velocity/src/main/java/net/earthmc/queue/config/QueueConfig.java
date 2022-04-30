@@ -123,4 +123,32 @@ public class QueueConfig {
     }
 
     public record AutoQueueSettings(long delay, String defaultTarget, String autoQueueServer) {}
+
+    public String getStorageType() {
+        return config.getString("database.type");
+    }
+
+    public String getDatabaseHost() {
+        return config.getString("database.host");
+    }
+
+    public String getDatabasePort() {
+        return config.getString("database.port");
+    }
+
+    public String getDatabaseUsername() {
+        return config.getString("database.username");
+    }
+
+    public String getDatabaseName() {
+        return config.getString("database.database_name");
+    }
+
+    public String getDatabasePassword() {
+        return config.getString("database.password");
+    }
+
+    public String getDatabaseFlags() {
+        return config.getString("database.flags");
+    }
 }

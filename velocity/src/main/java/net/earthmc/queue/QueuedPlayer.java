@@ -7,12 +7,9 @@ import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 public class QueuedPlayer implements ForwardingAudience.Single {
     private static final Priority NONE_PRIORITY = new Priority("none", 0, Component.empty());
@@ -21,7 +18,9 @@ public class QueuedPlayer implements ForwardingAudience.Single {
     private final String name;
     private Queue queue;
     private Priority priority;
-    private final Map<String, Object> settings = new HashMap<>(0);
+    private String lastJoined;
+    private boolean autoQueueDisabled;
+    private boolean dataLoaded = false;
 
     public QueuedPlayer(@NotNull Player player) {
         this.uuid = player.getUniqueId();
@@ -30,7 +29,7 @@ public class QueuedPlayer implements ForwardingAudience.Single {
 
     @Nullable
     public Player player() {
-        return QueuePlugin.proxy().getPlayer(this.uuid).orElse(null);
+        return QueuePlugin.instance().proxy().getPlayer(this.uuid).orElse(null);
     }
 
     /**
@@ -93,7 +92,7 @@ public class QueuedPlayer implements ForwardingAudience.Single {
 
     @Override
     public @NotNull Audience audience() {
-        return QueuePlugin.proxy().getPlayer(this.uuid).map(player -> (Audience) player).orElse(Audience.empty());
+        return QueuePlugin.instance().proxy().getPlayer(this.uuid).map(player -> (Audience) player).orElse(Audience.empty());
     }
 
     @NotNull
@@ -106,30 +105,26 @@ public class QueuedPlayer implements ForwardingAudience.Single {
         return this.name;
     }
 
-    public CompletableFuture<Void> loadData() {
-        if (!settings.isEmpty())
-            return CompletableFuture.completedFuture(null);
-
-        return QueuePlugin.instance().storage().loadSavedData(this);
+    public void loadData() {
+        if (!dataLoaded) {
+            dataLoaded = true;
+            QueuePlugin.instance().storage().loadPlayer(this);
+        }
     }
 
     public boolean isAutoQueueDisabled() {
-        return Boolean.parseBoolean(String.valueOf(this.settings.getOrDefault("autoQueueDisabled", "false")));
+        return this.autoQueueDisabled;
     }
 
     public void setAutoQueueDisabled(boolean autoQueueDisabled) {
-        this.settings.put("autoQueueDisabled", autoQueueDisabled);
+        this.autoQueueDisabled = autoQueueDisabled;
     }
 
     public Optional<String> getLastJoinedServer() {
-        return Optional.ofNullable(String.valueOf(this.settings.get("lastJoined")));
+        return Optional.ofNullable(this.lastJoined);
     }
 
-    public void setLastJoinedServer(@NotNull String lastJoinedServer) {
-        this.settings.put("lastJoined", lastJoinedServer);
-    }
-
-    public Map<String, Object> getSettings() {
-        return this.settings;
+    public void setLastJoinedServer(@Nullable String lastJoinedServer) {
+        this.lastJoined = lastJoinedServer;
     }
 }

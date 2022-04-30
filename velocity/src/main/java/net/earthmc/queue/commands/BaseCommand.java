@@ -8,6 +8,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class BaseCommand {
@@ -18,13 +19,13 @@ public class BaseCommand {
     public List<String> filterByPermission(@NotNull PermissionSubject subject, Collection<String> collection, String permPrefix, @Nullable String startingWith) {
         List<String> strings = new ArrayList<>(collection);
         strings.removeIf(string -> !hasPrefixedPermission(subject, permPrefix, string));
-        return startingWith != null ? filterByStart(collection, startingWith) : strings;
+        return startingWith != null ? filterByStart(strings, startingWith) : strings;
     }
 
     public boolean hasPrefixedPermission(@NotNull PermissionSubject subject, @NotNull String permPrefix, @Nullable String arg) {
-        if (arg != null && subject.getPermissionValue(permPrefix + arg) == Tristate.FALSE)
+        if (arg != null && subject.getPermissionValue(permPrefix + arg.toLowerCase(Locale.ROOT)) == Tristate.FALSE)
             return false;
 
-        return subject.hasPermission(permPrefix + "*") || (arg != null && subject.hasPermission(permPrefix + arg));
+        return subject.hasPermission(permPrefix + "*") || (arg != null && subject.hasPermission(permPrefix + arg.toLowerCase(Locale.ROOT)));
     }
 }

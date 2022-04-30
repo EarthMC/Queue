@@ -7,6 +7,17 @@ delay = 90
 default-target = "towny"
 autoqueue-server = "hub"
 
+[database]
+# Available types: flatfile, sql
+type = "flatfile"
+# Sql settings
+host = "127.0.0.1"
+port = "3306"
+username = "root"
+password = ""
+database_name = "queue"
+flags = ""
+
 [[priority]]
 name = "staff"
 weight = 6
