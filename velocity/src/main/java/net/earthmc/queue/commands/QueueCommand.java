@@ -17,7 +17,7 @@ import java.util.Optional;
 
 public class QueueCommand extends BaseCommand implements SimpleCommand {
 
-    private static final List<String> tabCompletes = Arrays.asList("reload", "skip", "autoqueue");
+    private static final List<String> tabCompletes = Arrays.asList("reload", "skip", "autoqueue", "position");
 
     private final QueuePlugin plugin;
 
@@ -28,7 +28,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
     @Override
     public void execute(Invocation invocation) {
         String[] args = invocation.arguments();
-        if (args.length == 0) {
+        if (args.length == 0 || (invocation.arguments().length > 0 && invocation.arguments()[0].equalsIgnoreCase("position"))) {
             if (!(invocation.source() instanceof Player player) || !QueuePlugin.instance().queued(player).isInQueue()) {
                 invocation.source().sendMessage(Component.text("You are not in a queue.", NamedTextColor.RED));
                 return;
@@ -43,7 +43,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
         }
 
         if (!hasPrefixedPermission(invocation.source(), "queue.", args[0])) {
-            invocation.source().sendMessage(Component.text("You do not have enough permission to use this command."));
+            invocation.source().sendMessage(Component.text("You do not have enough permission to use this command.", NamedTextColor.RED));
             return;
         }
 
@@ -110,14 +110,24 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
         QueuedPlayer queuedPlayer = plugin.queued(player);
 
         queuedPlayer.setAutoQueueDisabled(!queuedPlayer.isAutoQueueDisabled());
-        player.sendMessage(Component.text("Autoqueue is now ", NamedTextColor.GOLD)
-                .append(Component.text(queuedPlayer.isAutoQueueDisabled() ? "disabled" : "enabled",
-                        queuedPlayer.isAutoQueueDisabled() ? NamedTextColor.DARK_RED : NamedTextColor.DARK_GREEN))
-                .append(Component.text(".", NamedTextColor.GOLD)));
+        player.sendMessage(Component.text("Autoqueue is now ", NamedTextColor.GRAY).append(queuedPlayer.isAutoQueueDisabled()
+                        ? Component.text("disabled", NamedTextColor.RED)
+                        : Component.text("enabled", NamedTextColor.GREEN))
+                .append(Component.text(".", NamedTextColor.GRAY)));
     }
 
     @Override
     public List<String> suggest(Invocation invocation) {
+        switch (invocation.arguments().length) {
+            case 0:
+            case 1:
+                return filterByPermission(invocation.source(), tabCompletes, "queue.", invocation.arguments().length > 0 ? invocation.arguments()[0] : null);
+            case 2: {
+                if (invocation.arguments()[0].equalsIgnoreCase("skip") && hasPrefixedPermission(invocation.source(), "queue.", "skip"))
+                    return filterByStart(plugin.proxy().getAllPlayers().stream().map(Player::getUsername).toList(), invocation.arguments()[1]);
+            }
+        }
+
         return Collections.emptyList();
     }
 }

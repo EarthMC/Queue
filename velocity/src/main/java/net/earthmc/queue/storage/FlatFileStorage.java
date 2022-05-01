@@ -58,9 +58,6 @@ public class FlatFileStorage extends Storage {
 
                 properties.setProperty("autoQueueDisabled", String.valueOf(player.isAutoQueueDisabled()));
 
-                QueuePlugin.debug("reached");
-                QueuePlugin.debug(properties.toString());
-
                 try (OutputStream os = Files.newOutputStream(dataFile)) {
                     properties.store(os, null);
                 }
