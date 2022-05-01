@@ -95,7 +95,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
     }
 
     private void parseQueueReload(Invocation invocation) {
-        if (!plugin.config().reload())
+        if (!plugin.reload())
             invocation.source().sendMessage(Component.text("Couldn't reload the config, check the console for details", NamedTextColor.RED));
         else
             invocation.source().sendMessage(Component.text("Successfully reloaded the config.", NamedTextColor.GREEN));

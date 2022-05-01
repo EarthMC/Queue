@@ -29,6 +29,7 @@ public class SQLStorage extends Storage {
             return;
 
         plugin.logger().info("Enabling SQL storage.");
+        enabled = true;
 
         String connectionUrl = "jdbc:mysql://" + plugin.config().getDatabaseHost() + ":" + plugin.config().getDatabasePort() + "/" + plugin.config().getDatabaseName() + plugin.config().getDatabaseFlags();
 
@@ -72,12 +73,16 @@ public class SQLStorage extends Storage {
         if (!this.enabled)
             return;
 
+        plugin.logger().info("Disabling SQL storage.");
+
         this.enabled = false;
 
         if (dataSource != null && dataSource.isRunning()) {
             dataSource.close();
             dataSource = null;
         }
+
+        plugin.logger().info("SQL storage disabled.");
     }
 
     @Override

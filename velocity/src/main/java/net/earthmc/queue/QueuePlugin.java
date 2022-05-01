@@ -22,6 +22,7 @@ import net.earthmc.queue.commands.PauseCommand;
 import net.earthmc.queue.commands.QueueCommand;
 import net.earthmc.queue.config.QueueConfig;
 import net.earthmc.queue.storage.FlatFileStorage;
+import net.earthmc.queue.storage.NullStorage;
 import net.earthmc.queue.storage.SQLStorage;
 import net.earthmc.queue.storage.Storage;
 import net.kyori.adventure.text.Component;
@@ -45,26 +46,33 @@ public class QueuePlugin {
     private static QueuePlugin instance;
     private final ProxyServer proxy;
     private final Logger logger;
+    private final Path pluginFolderPath;
     private final Map<String, Queue> queues = new ConcurrentHashMap<>();
     private final Map<UUID, QueuedPlayer> queuedPlayers = new HashMap<>();
     private final QueueConfig config;
     private boolean debug = false;
-    private final Storage storage;
+    private Storage storage;
     private final Map<UUID, ScheduledTask> scheduledTasks = new ConcurrentHashMap<>();
 
     @Inject
-    public QueuePlugin(ProxyServer proxy, CommandManager commandManager, Logger logger, @DataDirectory Path dataFolderPath) {
+    public QueuePlugin(ProxyServer proxy, CommandManager commandManager, Logger logger, @DataDirectory Path pluginFolderPath) {
         QueuePlugin.instance = this;
         this.proxy = proxy;
         this.logger = logger;
-        this.config = new QueueConfig(this, dataFolderPath);
+        this.pluginFolderPath = pluginFolderPath;
+        this.config = new QueueConfig(this, pluginFolderPath);
         this.config.load();
 
         this.storage = config.getStorageType().equalsIgnoreCase("sql")
                 ? new SQLStorage(this)
-                : new FlatFileStorage(this, dataFolderPath.resolve("data"));
+                : new FlatFileStorage(this, pluginFolderPath.resolve("data"));
 
-        this.storage.enable();
+        try {
+            this.storage.enable();
+        } catch (Exception e) {
+            logger.error("An exception occurred when enabling the storage", e);
+            this.storage = new NullStorage();
+        }
 
         commandManager.register("joinqueue", new JoinCommand(this));
         commandManager.register("leavequeue", new LeaveCommand());
@@ -91,8 +99,40 @@ public class QueuePlugin {
 
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
-        if (this.storage != null)
-            this.storage.disable();
+        if (this.storage != null) {
+            try {
+                this.storage.disable();
+            } catch (Exception e) {
+                logger.error("An exception occurred when disabling the storage", e);
+            }
+        }
+    }
+
+    public boolean reload() {
+        if (!this.config.reload())
+            return false;
+
+        // Disable storage if it isn't null
+        if (this.storage != null) {
+            try {
+                this.storage.disable();
+            } catch (Exception e) {
+                logger.error("An exception occurred when disabling the storage.", e);
+            }
+        }
+
+        this.storage = config.getStorageType().equalsIgnoreCase("sql")
+                ? new SQLStorage(this)
+                : new FlatFileStorage(this, pluginFolderPath.resolve("data"));
+
+        try {
+            this.storage.enable();
+        } catch (Exception e) {
+            logger.error("An exception occurred when enabling the storage", e);
+            this.storage = new NullStorage();
+        }
+
+        return true;
     }
 
     @Subscribe
