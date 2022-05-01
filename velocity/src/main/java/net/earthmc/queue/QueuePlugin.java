@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -110,7 +111,7 @@ public class QueuePlugin {
                 player.queue().remove(player);
 
             event.getPlayer().getCurrentServer().ifPresent(server -> {
-                if (!server.getServerInfo().getName().equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()))
+                if (!config.autoQueueSettings().autoQueueServers().contains(server.getServerInfo().getName().toLowerCase(Locale.ROOT)))
                     player.setLastJoinedServer(server.getServerInfo().getName());
             });
 
@@ -139,7 +140,7 @@ public class QueuePlugin {
                 player.isAutoQueueDisabled() // Player has auto queue disabled
                 || scheduledTasks.containsKey(uuid) // There's already a scheduled auto queue task for this player
                 || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE // The player has the auto queue permission explicitly set to false
-                || !event.getServer().getServerInfo().getName().equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()) // The player isn't on the auto queue server
+                || !config.autoQueueSettings().autoQueueServers().contains(event.getServer().getServerInfo().getName().toLowerCase(Locale.ROOT)) // The player isn't on one of the auto queue servers.
         )
             return;
 
@@ -149,9 +150,9 @@ public class QueuePlugin {
             String target = player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget());
             final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
 
-            // Validate that the target is known to the proxy
+            // Validate that the target is known to the proxy and isn't an auto queue server, otherwise just return the default target.
             target = proxy.getServer(target).map(server -> server.getServerInfo().getName())
-                .filter(name -> !name.equalsIgnoreCase(config.autoQueueSettings().autoQueueServer()))
+                .filter(name -> !config.autoQueueSettings().autoQueueServers().contains(name.toLowerCase(Locale.ROOT)))
                 .orElse(config.autoQueueSettings().defaultTarget());
 
             // Prevent the player from being auto queued to the server they are already on

@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
@@ -44,7 +47,7 @@ public class QueueConfig {
         this.autoQueueSettings = new AutoQueueSettings(
                 autoQueueConfig.getLong("delay"),
                 autoQueueConfig.getString("default-target"),
-                autoQueueConfig.getString("autoqueue-server")
+                new HashSet<>(Arrays.asList(autoQueueConfig.getString("autoqueue-server").toLowerCase(Locale.ROOT).split(",")))
         );
 
         for (Toml priority : config.getTables("priority")) {
@@ -122,7 +125,7 @@ public class QueueConfig {
         return autoQueueSettings;
     }
 
-    public record AutoQueueSettings(long delay, String defaultTarget, String autoQueueServer) {}
+    public record AutoQueueSettings(long delay, String defaultTarget, Set<String> autoQueueServers) {}
 
     public String getStorageType() {
         return config.getString("database.type");
