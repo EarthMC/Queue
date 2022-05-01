@@ -114,6 +114,10 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
                         ? Component.text("disabled", NamedTextColor.RED)
                         : Component.text("enabled", NamedTextColor.GREEN))
                 .append(Component.text(".", NamedTextColor.GRAY)));
+
+        // Remove the auto queue task for this player if they've got any
+        if (queuedPlayer.isAutoQueueDisabled())
+            plugin.removeAutoQueue(player);
     }
 
     @Override
