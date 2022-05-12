@@ -36,7 +36,7 @@ public class JoinCommand extends BaseCommand implements SimpleCommand {
         }
 
         String server = invocation.arguments()[0];
-        if (!invocation.source().hasPermission("queue.join." + server.toLowerCase()) && !invocation.source().hasPermission("queue.join.*")) {
+        if (!hasPrefixedPermission(invocation.source(), "queue.join.", server)) {
             source.sendMessage(Component.text(server + " is not a valid server.", NamedTextColor.RED));
             return;
         }

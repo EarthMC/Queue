@@ -16,6 +16,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
+import net.earthmc.queue.commands.BaseCommand;
 import net.earthmc.queue.commands.JoinCommand;
 import net.earthmc.queue.commands.LeaveCommand;
 import net.earthmc.queue.commands.PauseCommand;
@@ -197,6 +198,10 @@ public class QueuePlugin {
 
             // Prevent the player from being auto queued to the server they are already on
             if (target.equalsIgnoreCase(currentServerName))
+                return;
+
+            // Ensure that the player has permissions to join this queue.
+            if (!BaseCommand.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
                 return;
 
             Queue queue = queue(target);

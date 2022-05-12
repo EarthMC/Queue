@@ -22,7 +22,7 @@ public class BaseCommand {
         return startingWith != null ? filterByStart(strings, startingWith) : strings;
     }
 
-    public boolean hasPrefixedPermission(@NotNull PermissionSubject subject, @NotNull String permPrefix, @Nullable String arg) {
+    public static boolean hasPrefixedPermission(@NotNull PermissionSubject subject, @NotNull String permPrefix, @Nullable String arg) {
         if (arg != null && subject.getPermissionValue(permPrefix + arg.toLowerCase(Locale.ROOT)) == Tristate.FALSE)
             return false;
 
