@@ -191,16 +191,17 @@ public class QueuePlugin {
             String target = player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget());
             final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
 
-            // Validate that the target is known to the proxy and isn't an auto queue server, otherwise just return the default target.
+            // Validate that the target is known to the proxy, it isn't an auto queue server, and the player has permissions to join it, otherwise just return the default target.
             target = proxy.getServer(target).map(server -> server.getServerInfo().getName())
                 .filter(name -> !config.autoQueueSettings().autoQueueServers().contains(name.toLowerCase(Locale.ROOT)))
+                .filter(name -> BaseCommand.hasPrefixedPermission(event.getPlayer(), "queue.join.", name))
                 .orElse(config.autoQueueSettings().defaultTarget());
 
             // Prevent the player from being auto queued to the server they are already on
             if (target.equalsIgnoreCase(currentServerName))
                 return;
 
-            // Ensure that the player has permissions to join this queue.
+            // Simply return if the player doesn't have permissions to join the default target.
             if (!BaseCommand.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
                 return;
 
