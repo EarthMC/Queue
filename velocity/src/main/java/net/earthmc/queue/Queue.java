@@ -11,7 +11,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
@@ -20,8 +20,8 @@ import java.util.concurrent.TimeUnit;
  * Represents a queue for a server.
  */
 public class Queue {
-    private final Duration TIME_BETWEEN_SENDS = Duration.ofMillis(1000);
-    private final Set<SubQueue> subQueues;
+    private static final Duration TIME_BETWEEN_SENDS = Duration.ofMillis(1000);
+    private final List<SubQueue> subQueues;
     private final SubQueue regularQueue;
     private final Ratio<SubQueue> subQueueRatio;
     private final Cache<UUID, Integer> rememberedPlayers = CacheBuilder.newBuilder().expireAfterWrite(15, TimeUnit.MINUTES).build();
@@ -52,7 +52,7 @@ public class Queue {
     /**
      * Only used for tests
      */
-    public Queue(Set<SubQueue> subQueues) {
+    public Queue(List<SubQueue> subQueues) {
         this.subQueues = subQueues;
         this.formattedName = "TestQueue";
         this.name = "testqueue";

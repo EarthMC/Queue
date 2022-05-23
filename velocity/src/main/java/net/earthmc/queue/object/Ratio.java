@@ -5,10 +5,10 @@ import net.earthmc.queue.SubQueue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Predicate;
 
 public class Ratio<T> {
+    private final Predicate<T> allPredicate = (t) -> true;
     private final List<Option<T>> options = new ArrayList<>();
     private int optionIndex = 0;
 
@@ -18,14 +18,14 @@ public class Ratio<T> {
         }
     }
 
-    public Ratio(Set<SubQueue> subQueues) {
+    public Ratio(List<SubQueue> subQueues) {
         for (SubQueue subQueue : subQueues) {
             this.options.add(new Option<>((T) subQueue, subQueue.maxSends));
         }
     }
 
     public T next(boolean dry) {
-        return next(dry, (t) -> true, null);
+        return next(dry, allPredicate, null);
     }
 
     public T next(boolean dry, Predicate<T> predicate, T defaultValue) {

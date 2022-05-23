@@ -2,11 +2,10 @@ package net.earthmc.queue.object;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
 import java.util.Comparator;
 
 public class Weighted implements Comparable<Weighted> {
-    private static final Comparator<Weighted> comparator = Collections.reverseOrder(Comparator.comparingInt(w -> w.weight));
+    private static final Comparator<Weighted> comparator = Comparator.comparing(Weighted::weight, Comparator.reverseOrder());
     public final int weight;
 
     public Weighted(int weight) {

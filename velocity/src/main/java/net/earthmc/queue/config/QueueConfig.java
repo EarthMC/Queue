@@ -12,19 +12,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 public class QueueConfig {
     private final QueuePlugin plugin;
     private final Path dataFolder;
     private final Path configPath;
     private Toml config;
-    private Set<Priority> priorities;
-    private Set<SubQueue> subQueues;
+    private List<Priority> priorities;
+    private List<SubQueue> subQueues;
     private AutoQueueSettings autoQueueSettings;
     private static final String CONFIG_FILE_NAME = "config.toml";
 
@@ -38,8 +40,8 @@ public class QueueConfig {
         saveDefaultConfig();
 
         config = new Toml().read(configPath.toFile());
-        priorities = new ConcurrentSkipListSet<>();
-        subQueues = new ConcurrentSkipListSet<>();
+        priorities = new ArrayList<>();
+        subQueues = new ArrayList<>();
 
         plugin.setDebug(config.getBoolean("debug", false));
 
@@ -59,6 +61,8 @@ public class QueueConfig {
             QueuePlugin.debug("Added new priority with name " + name + ".");
         }
 
+        Collections.sort(priorities);
+
         boolean hasRegularQueue = false;
         for (Toml subQueue : config.getTables("subqueue")) {
             String name = subQueue.getString("name", "regular");
@@ -74,6 +78,8 @@ public class QueueConfig {
 
         if (!hasRegularQueue)
             subQueues.add(new SubQueue("regular", 0, 1));
+
+        Collections.sort(subQueues);
 
         return true;
     }
@@ -108,16 +114,18 @@ public class QueueConfig {
         }
     }
 
-    public Set<SubQueue> newSubQueues() {
-        Set<SubQueue> newSubQueues = new ConcurrentSkipListSet<>();
+    public List<SubQueue> newSubQueues() {
+        List<SubQueue> newSubQueues = new ArrayList<>();
 
         for (SubQueue subQueue : this.subQueues)
             newSubQueues.add(new SubQueue(subQueue.name(), subQueue.weight(), subQueue.maxSends()));
 
+        Collections.sort(newSubQueues);
+
         return newSubQueues;
     }
 
-    public Set<Priority> priorities() {
+    public List<Priority> priorities() {
         return priorities;
     }
 
