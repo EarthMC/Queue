@@ -1,4 +1,3 @@
 .idea
-velocity/target
-bukkit/target
+target
 *.iml

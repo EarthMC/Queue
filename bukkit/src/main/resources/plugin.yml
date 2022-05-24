@@ -1,9 +1,0 @@
-name: QueueBukkit
-version: '${project.version}'
-main: net.earthmc.queuebukkit.QueueBukkit
-api-version: 1.17
-authors: [ Warriorrr ]
-
-commands:
-  queuejoin:
-    info: Command used to add a player to a queue server side.
