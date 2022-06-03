@@ -296,6 +296,10 @@ public class Queue {
         this.failedAttempts = 0;
     }
 
+    public Instant unpauseTime() {
+        return this.unpauseTime;
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other)

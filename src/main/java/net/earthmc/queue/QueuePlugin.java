@@ -1,5 +1,7 @@
 package net.earthmc.queue;
 
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
@@ -31,7 +33,11 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Locale;
@@ -87,6 +93,9 @@ public class QueuePlugin {
             queues.put(server.getServerInfo().getName().toLowerCase(), new Queue(server, this));
         }
 
+        // Load any paused queues from the paused-queues.json file.
+        loadPausedQueues();
+
         proxy.getScheduler().buildTask(this, () -> {
             for (Queue queue : queues().values())
                 queue.sendNext();
@@ -107,6 +116,8 @@ public class QueuePlugin {
                 logger.error("An exception occurred when disabling the storage", e);
             }
         }
+
+        savePausedQueues();
     }
 
     public boolean reload() {
@@ -295,5 +306,59 @@ public class QueuePlugin {
 
     public Storage storage() {
         return storage;
+    }
+
+    public void loadPausedQueues() {
+        Path pausedQueuesPath = pluginFolderPath.resolve("paused-queues.json");
+
+        if (Files.exists(pausedQueuesPath)) {
+            @SuppressWarnings("UnstableApiUsage")
+            Type type = new TypeToken<Map<String, Long>>() {}.getType();
+
+            try {
+                Map<String, Long> pausedQueues = new Gson().fromJson(Files.readString(pausedQueuesPath), type);
+                for (Map.Entry<String, Long> entry : pausedQueues.entrySet()) {
+                    Queue queue = queue(entry.getKey());
+                    if (queue == null)
+                        continue;
+
+                    Instant instant = Instant.ofEpochSecond(entry.getValue());
+                    if (Instant.now().isAfter(instant))
+                        continue;
+
+                    queue.pause(true, Instant.ofEpochSecond(entry.getValue()));
+                    logger.info("Re-paused the queue for " + entry.getKey() + ".");
+                }
+
+                try {
+                    Files.deleteIfExists(pausedQueuesPath);
+                } catch (IOException e) {
+                    logger.error("Failed to delete paused-queues.json", e);
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
+    public void savePausedQueues() {
+        Map<String, Long> pausedQueues = new HashMap<>();
+        for (Map.Entry<String, Queue> entry : this.queues().entrySet()) {
+            if (entry.getValue().paused())
+                pausedQueues.put(entry.getKey(), entry.getValue().unpauseTime().getEpochSecond());
+        }
+
+        if (pausedQueues.size() > 0) {
+            Path pausedQueuesPath = pluginFolderPath.resolve("paused-queues.json");
+
+            try {
+                if (!Files.exists(pausedQueuesPath))
+                    Files.createFile(pausedQueuesPath);
+
+                Files.writeString(pausedQueuesPath, new Gson().toJson(pausedQueues));
+
+                logger.info("Successfully saved " + pausedQueues.size() + " paused queue(s) to paused-queues.json");
+            } catch (Exception e) {
+                logger.error("Unable to save " + pausedQueues.size() + " paused queues.", e);
+            }
+        }
     }
 }

@@ -31,7 +31,7 @@ public class PauseCommand extends BaseCommand implements SimpleCommand {
 
         Queue queue = QueuePlugin.instance().queue(invocation.arguments()[0]);
         if (queue == null) {
-            source.sendMessage(Component.text(invocation.arguments()[0] + " is not a valid server.", NamedTextColor.RED));
+            source.sendMessage(Component.text(invocation.arguments()[0] + " is not a valid queue.", NamedTextColor.RED));
             return;
         }
 
