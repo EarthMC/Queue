@@ -50,7 +50,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "skip" -> parseQueueSkip(invocation);
             case "reload" -> parseQueueReload(invocation);
-            case "autoqueue" -> parseQueueAutoQueue(invocation);
+            case "auto" -> parseQueueAutoQueue(invocation);
             default -> invocation.source().sendMessage(Component.text(invocation.arguments()[0] + " is not a valid subcommand.", NamedTextColor.RED));
         }
     }
@@ -110,10 +110,10 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
         QueuedPlayer queuedPlayer = plugin.queued(player);
 
         queuedPlayer.setAutoQueueDisabled(!queuedPlayer.isAutoQueueDisabled());
-        player.sendMessage(Component.text("Autoqueue is now ", NamedTextColor.GRAY).append(queuedPlayer.isAutoQueueDisabled()
-                        ? Component.text("disabled", NamedTextColor.RED)
-                        : Component.text("enabled", NamedTextColor.GREEN))
-                .append(Component.text(".", NamedTextColor.GRAY)));
+        if (queuedPlayer.isAutoQueueDisabled())
+            player.sendMessage(Component.text("You will no longer automatically join a queue after joining.", NamedTextColor.GRAY));
+        else
+            player.sendMessage(Component.text("You will now automatically join the queue for your last server upon joining.", NamedTextColor.GRAY));
 
         // Remove the auto queue task for this player if they've got any
         if (queuedPlayer.isAutoQueueDisabled())
