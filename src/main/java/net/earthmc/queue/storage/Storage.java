@@ -8,7 +8,7 @@ public abstract class Storage {
 
     abstract public void savePlayer(@NotNull QueuedPlayer player);
 
-    public void enable() {}
+    public void enable() throws Exception {}
 
     public void disable() {}
 }

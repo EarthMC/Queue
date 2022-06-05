@@ -27,8 +27,11 @@ public class FlatFileStorage extends Storage {
                 plugin.logger().error("Couldn't create the Queue/data directory.", e);
             }
         }
+
+        plugin.logger().info("Using flatfile storage.");
     }
 
+    @Override
     public void loadPlayer(@NotNull QueuedPlayer player) {
         CompletableFuture.runAsync(() -> {
             try {
@@ -47,6 +50,7 @@ public class FlatFileStorage extends Storage {
         });
     }
 
+    @Override
     public void savePlayer(@NotNull QueuedPlayer player) {
         CompletableFuture.runAsync(() -> {
             try {
