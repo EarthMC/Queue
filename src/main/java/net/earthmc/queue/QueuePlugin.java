@@ -6,7 +6,6 @@ import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
-import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.Subscribe;
@@ -232,12 +231,6 @@ public class QueuePlugin {
             task.cancel();
 
         scheduledTasks.remove(player.getUniqueId());
-    }
-
-    @Subscribe
-    public void onPlayerKick(KickedFromServerEvent event) {
-        Component reason = event.getServerKickReason().orElse(Component.text("You have been kicked from the server you were on.", NamedTextColor.RED));
-        event.setResult(KickedFromServerEvent.DisconnectPlayer.create(reason));
     }
 
     public Map<String, Queue> queues() {
