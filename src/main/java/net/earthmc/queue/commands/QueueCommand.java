@@ -17,7 +17,7 @@ import java.util.Optional;
 
 public class QueueCommand extends BaseCommand implements SimpleCommand {
 
-    private static final List<String> tabCompletes = Arrays.asList("reload", "skip", "autoqueue", "position");
+    private static final List<String> tabCompletes = Arrays.asList("reload", "skip", "auto", "position");
 
     private final QueuePlugin plugin;
 
