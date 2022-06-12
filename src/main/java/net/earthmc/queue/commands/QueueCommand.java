@@ -133,9 +133,9 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
 
         queuedPlayer.setAutoQueueDisabled(!queuedPlayer.isAutoQueueDisabled());
         if (queuedPlayer.isAutoQueueDisabled())
-            player.sendMessage(Component.text("You will no longer automatically join a queue after joining.", NamedTextColor.GRAY));
+            player.sendMessage(Component.text("You will no longer automatically join a queue after joining.", NamedTextColor.GREEN));
         else
-            player.sendMessage(Component.text("You will now automatically join the queue for your last server upon joining.", NamedTextColor.GRAY));
+            player.sendMessage(Component.text("You will now automatically join the queue for your last server upon joining.", NamedTextColor.GREEN));
 
         // Remove the auto queue task for this player if they've got any
         if (queuedPlayer.isAutoQueueDisabled())
