@@ -331,4 +331,8 @@ public class Queue {
 
         return current;
     }
+
+    public void forget(UUID uuid) {
+        this.rememberedPlayers.invalidate(uuid);
+    }
 }

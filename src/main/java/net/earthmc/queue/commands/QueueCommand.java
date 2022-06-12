@@ -26,6 +26,27 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
     }
 
     @Override
+    public List<String> suggest(Invocation invocation) {
+        final String[] args = invocation.arguments();
+        switch (args.length) {
+            case 0:
+            case 1:
+                return filterByPermission(invocation.source(), tabCompletes, "queue.", args.length > 0 ? args[0] : null);
+            case 2: {
+                switch (args[0].toLowerCase(Locale.ROOT)) {
+                    case "skip":
+                    case "forget":
+                        if (hasPrefixedPermission(invocation.source(), "queue.", args[0]))
+                            return filterByStart(plugin.proxy().getAllPlayers().stream().map(Player::getUsername).toList(), args[1]);
+                        break;
+                }
+            }
+        }
+
+        return Collections.emptyList();
+    }
+
+    @Override
     public void execute(Invocation invocation) {
         String[] args = invocation.arguments();
         if (args.length == 0 || (invocation.arguments().length > 0 && invocation.arguments()[0].equalsIgnoreCase("position"))) {
@@ -51,6 +72,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
             case "skip" -> parseQueueSkip(invocation);
             case "reload" -> parseQueueReload(invocation);
             case "auto" -> parseQueueAutoQueue(invocation);
+            case "forget" -> parseQueueForget(invocation);
             default -> invocation.source().sendMessage(Component.text(invocation.arguments()[0] + " is not a valid subcommand.", NamedTextColor.RED));
         }
     }
@@ -64,14 +86,14 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
             return;
         }
 
-        Optional<Player> optPlayer = QueuePlugin.instance().proxy().getPlayer(invocation.arguments()[1]);
+        Optional<Player> optPlayer = plugin.proxy().getPlayer(invocation.arguments()[1]);
         if (optPlayer.isEmpty()) {
             invocation.source().sendMessage(Component.text(invocation.arguments()[1] + " is currently offline or doesn't exist.", NamedTextColor.RED));
             return;
         }
 
         Player player = optPlayer.get();
-        QueuedPlayer queuedPlayer = QueuePlugin.instance().queued(player);
+        QueuedPlayer queuedPlayer = plugin.queued(player);
         if (!queuedPlayer.isInQueue()) {
             invocation.source().sendMessage(Component.text(player.getUsername() + " isn't in a queue.", NamedTextColor.RED));
             return;
@@ -120,18 +142,25 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
             plugin.removeAutoQueue(player);
     }
 
-    @Override
-    public List<String> suggest(Invocation invocation) {
-        switch (invocation.arguments().length) {
-            case 0:
-            case 1:
-                return filterByPermission(invocation.source(), tabCompletes, "queue.", invocation.arguments().length > 0 ? invocation.arguments()[0] : null);
-            case 2: {
-                if (invocation.arguments()[0].equalsIgnoreCase("skip") && hasPrefixedPermission(invocation.source(), "queue.", "skip"))
-                    return filterByStart(plugin.proxy().getAllPlayers().stream().map(Player::getUsername).toList(), invocation.arguments()[1]);
-            }
+    private void parseQueueForget(Invocation invocation) {
+        if (!invocation.source().hasPermission("queue.forget"))
+            return;
+
+        if (invocation.arguments().length < 2) {
+            invocation.source().sendMessage(Component.text("Invalid usage! Usage: /queue forget <player>", NamedTextColor.RED));
         }
 
-        return Collections.emptyList();
+        Optional<Player> optPlayer = plugin.proxy().getPlayer(invocation.arguments()[1]);
+        if (optPlayer.isEmpty()) {
+            invocation.source().sendMessage(Component.text(invocation.arguments()[1] + " is currently offline or doesn't exist.", NamedTextColor.RED));
+            return;
+        }
+
+        Player player = optPlayer.get();
+        for (Queue queue : plugin.queues().values()) {
+            queue.forget(player.getUniqueId());
+        }
+
+        invocation.source().sendMessage(Component.text(player.getUsername() + "'s position has been forgotten in all queues.", NamedTextColor.GREEN));
     }
 }
