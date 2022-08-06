@@ -15,12 +15,15 @@ import java.util.List;
 import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 /**
  * Represents a queue for a server.
  */
 public class Queue {
     private static final Duration TIME_BETWEEN_SENDS = Duration.ofMillis(1000);
+    private static final Predicate<SubQueue> NOT_EMPTY_PREDICATE = subQueue -> !subQueue.players().isEmpty();
+
     private final List<SubQueue> subQueues;
     private final SubQueue regularQueue;
     private final Ratio<SubQueue> subQueueRatio;
@@ -262,7 +265,7 @@ public class Queue {
      * @return The queue to send the next player from.
      */
     public SubQueue getNextSubQueue(boolean dry) {
-        return this.subQueueRatio.next(dry, (subQueue) -> !subQueue.players().isEmpty(), regularQueue);
+        return this.subQueueRatio.next(dry, NOT_EMPTY_PREDICATE, regularQueue);
     }
 
     public SubQueue getSubQueue(QueuedPlayer player) {
@@ -334,5 +337,9 @@ public class Queue {
 
     public void forget(UUID uuid) {
         this.rememberedPlayers.invalidate(uuid);
+    }
+
+    public Ratio<SubQueue> getSubQueueRatio() {
+        return subQueueRatio;
     }
 }

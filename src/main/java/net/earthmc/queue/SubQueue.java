@@ -77,4 +77,15 @@ public class SubQueue extends Weighted {
                 ", weight=" + weight +
                 '}';
     }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other == this)
+            return true;
+
+        if (!(other instanceof SubQueue subQueue))
+            return false;
+
+        return subQueue.name().equals(this.name);
+    }
 }

@@ -2,6 +2,7 @@ package net.earthmc.queue.config;
 
 import com.moandjiezana.toml.Toml;
 import net.earthmc.queue.Priority;
+import net.earthmc.queue.Queue;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
 import net.earthmc.queue.SubQueue;
@@ -15,9 +16,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 public class QueueConfig {
@@ -80,6 +83,13 @@ public class QueueConfig {
             subQueues.add(new SubQueue("regular", 0, 1));
 
         Collections.sort(subQueues);
+
+        Map<SubQueue, Integer> ratios = new HashMap<>();
+        for (SubQueue subQueue : this.subQueues)
+            ratios.put(subQueue, subQueue.maxSends);
+
+        for (Queue queue : plugin.queues().values())
+            queue.getSubQueueRatio().updateOptions(ratios);
 
         return true;
     }

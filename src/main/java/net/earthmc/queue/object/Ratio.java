@@ -1,6 +1,9 @@
 package net.earthmc.queue.object;
 
 import net.earthmc.queue.SubQueue;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,7 +11,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 public class Ratio<T> {
-    private final Predicate<T> allPredicate = (t) -> true;
+    private final Predicate<T> allPredicate = t -> true;
     private final List<Option<T>> options = new ArrayList<>();
     private int optionIndex = 0;
 
@@ -24,11 +27,18 @@ public class Ratio<T> {
         }
     }
 
+    @Nullable
     public T next(boolean dry) {
         return next(dry, allPredicate, null);
     }
 
-    public T next(boolean dry, Predicate<T> predicate, T defaultValue) {
+    @Contract("_, !null -> !null")
+    public T next(boolean dry, @Nullable T defaultValue) {
+        return next(dry, allPredicate, defaultValue);
+    }
+
+    @Contract("_, _, !null -> !null")
+    public T next(boolean dry, @NotNull Predicate<T> predicate, @Nullable T defaultValue) {
         if (this.options.isEmpty())
             throw new IllegalStateException("Attempted to find next with no options.");
 
@@ -82,15 +92,28 @@ public class Ratio<T> {
         return currentIndex + 1;
     }
 
+    public void updateOptions(Map<T, Integer> ratios) {
+        // Update existing options with new max uses in order to allow ratios to be updated via the reload command.
+        for (Option<T> option : this.options) {
+            ratios.entrySet().stream().filter(entry -> entry.getKey().equals(option.value)).findFirst().ifPresent(entry -> {
+                option.setMaxUses(entry.getValue());
+            });
+        }
+    }
+
     private static class Option<T> {
         private final T value;
-        private final int maxUses;
+        private int maxUses;
         private int uses;
 
         public Option(T value, int maxUses) {
             this.value = value;
             this.maxUses = maxUses;
             this.uses = 0;
+        }
+
+        public void setMaxUses(int maxUses) {
+            this.maxUses = maxUses;
         }
     }
 }
