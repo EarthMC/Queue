@@ -38,7 +38,7 @@ public class SQLStorage extends Storage {
         try {
             DriverManager.registerDriver((Driver) Class.forName("com.mysql.cj.jdbc.Driver").getDeclaredConstructor().newInstance());
         } catch (Exception e) {
-            e.printStackTrace();
+            plugin.logger().error("while registering sql driver", e);
         }
 
         try (Connection ignored = getConnection()) {
@@ -78,7 +78,7 @@ public class SQLStorage extends Storage {
                     }
                 }
             } catch (SQLException e) {
-                e.printStackTrace();
+                plugin.logger().error("while loading data for player " + player.name(), e);
             }
         });
     }
@@ -94,7 +94,7 @@ public class SQLStorage extends Storage {
 
                 ps.execute();
             } catch (SQLException e) {
-                e.printStackTrace();
+                plugin.logger().error("while saving data for player " + player.name(), e);
             }
         });
     }

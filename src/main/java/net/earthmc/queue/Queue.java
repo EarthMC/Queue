@@ -7,11 +7,14 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import net.earthmc.queue.object.Ratio;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +27,7 @@ public class Queue {
     private static final Duration TIME_BETWEEN_SENDS = Duration.ofMillis(1000);
     private static final Predicate<SubQueue> NOT_EMPTY_PREDICATE = subQueue -> !subQueue.players().isEmpty();
 
+    private final QueuePlugin plugin;
     private final List<SubQueue> subQueues;
     private final SubQueue regularQueue;
     private final Ratio<SubQueue> subQueueRatio;
@@ -40,11 +44,12 @@ public class Queue {
 
     public Queue(RegisteredServer server, QueuePlugin plugin) {
         this.server = server;
+        this.plugin = plugin;
 
         String name = server.getServerInfo().getName();
-        this.name = name.toLowerCase();
+        this.name = name.toLowerCase(Locale.ROOT);
 
-        this.formattedName = name.substring(0, 1).toUpperCase() + name.substring(1);
+        this.formattedName = name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
 
         refreshMaxPlayers();
         this.subQueues = plugin.config().newSubQueues();
@@ -55,11 +60,13 @@ public class Queue {
     /**
      * Only used for tests
      */
+    @VisibleForTesting
     public Queue(List<SubQueue> subQueues) {
         this.subQueues = subQueues;
         this.formattedName = "TestQueue";
         this.name = "testqueue";
         this.server = null;
+        this.plugin = null;
 
         this.subQueueRatio = new Ratio<>(this.subQueues);
         this.regularQueue = getLastElement(subQueues);
@@ -107,7 +114,7 @@ public class Queue {
                 player.sendMessage(Component.text("You have been sent to " + formattedName + ".", NamedTextColor.GREEN));
                 failedAttempts = 0;
                 sendProgressMessages(queue);
-                QueuePlugin.log(player.getUsername() + " has been sent to " + formattedName + " via queue.");
+                plugin.logger().info(player.getUsername() + " has been sent to " + formattedName + " via queue.");
             } else {
                 player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
 
@@ -122,8 +129,7 @@ public class Queue {
                 player.sendMessage(Component.text("Reason: ", reason.colorIfAbsent(NamedTextColor.RED).color()).append(reason));
             }
         }).exceptionally(e -> {
-            QueuePlugin.warn("An exception occurred while trying to send " + player.getUsername() + " to " + formattedName + ":");
-            e.printStackTrace();
+            plugin.logger().error("An exception occurred while trying to send " + player.getUsername() + " to " + formattedName, e);
             player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
             player.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));
             toSend.queue(this);
@@ -188,7 +194,7 @@ public class Queue {
                     return;
                 } else {
                     player.sendMessage(Component.text("You have been removed from the queue for " + player.queue().getServerFormatted() + ".", NamedTextColor.RED));
-                    QueuePlugin.log(player.name() + " has been removed from the queue, because they queued for another.");
+                    plugin.logger().info(player.name() + " has been removed from the queue, because they joined the queue for another.");
                     player.queue().remove(player);
                 }
             }
@@ -217,9 +223,7 @@ public class Queue {
         if (subQueue.players().isEmpty())
             return 0;
 
-        int rememberedPosition = subQueue.players().size();
-        if (rememberedPlayers.getIfPresent(player.uuid()) != null)
-            rememberedPosition = Math.min(rememberedPlayers.getIfPresent(player.uuid()), subQueue.players().size());
+        int rememberedPosition = Optional.ofNullable(rememberedPlayers.getIfPresent(player.uuid())).orElse(subQueue.players().size());
 
         int weight = player.priority().weight;
         if (weight == 0)
@@ -228,7 +232,7 @@ public class Queue {
         int slot = 0;
         for (int i = 0; i < subQueue.players().size(); i++) {
             if (weight <= subQueue.getPlayer(i).priority().weight)
-                slot = i+1;
+                slot = i + 1;
         }
 
         int priorityIndex = Math.min(slot, subQueue.players().size());

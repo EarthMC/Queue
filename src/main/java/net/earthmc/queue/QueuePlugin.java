@@ -45,7 +45,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "queue", name = "Queue", version = "0.1.1", authors = {"Warriorrr"})
+@Plugin(id = "queue", name = "Queue", version = "0.1.2", authors = {"Warriorrr"})
 public class QueuePlugin {
 
     private static QueuePlugin instance;
@@ -78,7 +78,7 @@ public class QueuePlugin {
         this.config.load();
 
         for (RegisteredServer server : proxy.getAllServers()) {
-            queues.put(server.getServerInfo().getName().toLowerCase(), new Queue(server, this));
+            queues.put(server.getServerInfo().getName().toLowerCase(Locale.ROOT), new Queue(server, this));
         }
 
         this.storage = config.getStorageType().equalsIgnoreCase("sql")
@@ -226,11 +226,9 @@ public class QueuePlugin {
     }
 
     public void removeAutoQueue(Player player) {
-        ScheduledTask task = scheduledTasks.get(player.getUniqueId());
+        ScheduledTask task = scheduledTasks.remove(player.getUniqueId());
         if (task != null)
             task.cancel();
-
-        scheduledTasks.remove(player.getUniqueId());
     }
 
     public Map<String, Queue> queues() {
@@ -247,7 +245,7 @@ public class QueuePlugin {
 
     @Nullable
     public Queue queue(String serverName) {
-        Queue queue = queues.get(serverName.toLowerCase());
+        Queue queue = queues.get(serverName.toLowerCase(Locale.ROOT));
 
         if (queue != null)
             return queue;
@@ -258,27 +256,17 @@ public class QueuePlugin {
             return null;
 
         queue = new Queue(registeredServer.get(), this);
-        queues.put(serverName.toLowerCase(), queue);
+        queues.put(serverName.toLowerCase(Locale.ROOT), queue);
 
         return queue;
     }
 
     public QueuedPlayer queued(Player player) {
-        queuedPlayers.putIfAbsent(player.getUniqueId(), new QueuedPlayer(player));
-
-        return queuedPlayers.get(player.getUniqueId());
+        return queuedPlayers.computeIfAbsent(player.getUniqueId(), k -> new QueuedPlayer(player));
     }
 
     public Collection<QueuedPlayer> queuedPlayers() {
         return queuedPlayers.values();
-    }
-
-    public static void log(Object message) {
-        instance.logger.info(String.valueOf(message));
-    }
-
-    public static void warn(Object message) {
-        instance.logger.warn(String.valueOf(message));
     }
 
     public static void debug(Object message) {

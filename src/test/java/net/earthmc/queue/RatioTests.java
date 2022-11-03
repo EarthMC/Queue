@@ -13,8 +13,8 @@ public class RatioTests {
     void singleOptionRatioTest() {
         Ratio<Integer> ratio = new Ratio<>(Map.of(1, 1));
 
-        assertEquals(1, ratio.next(false));
-        assertEquals(1, ratio.next(false));
+        assertEquals(1, ratio.next());
+        assertEquals(1, ratio.next());
     }
 
     @Test
@@ -26,15 +26,15 @@ public class RatioTests {
 
         Ratio<Integer> ratio = new Ratio<>(ints);
 
-        assertEquals(1, ratio.next(false));
-        assertEquals(2, ratio.next(false));
-        assertEquals(2, ratio.next(false));
-        assertEquals(3, ratio.next(false));
-        assertEquals(3, ratio.next(false));
-        assertEquals(3, ratio.next(false));
+        assertEquals(1, ratio.next());
+        assertEquals(2, ratio.next());
+        assertEquals(2, ratio.next());
+        assertEquals(3, ratio.next());
+        assertEquals(3, ratio.next());
+        assertEquals(3, ratio.next());
 
         // Rolls over back to 1
-        assertEquals(1, ratio.next(false));
+        assertEquals(1, ratio.next());
     }
 
     @Test

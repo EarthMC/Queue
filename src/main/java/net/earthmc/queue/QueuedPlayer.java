@@ -66,7 +66,7 @@ public class QueuedPlayer implements ForwardingAudience.Single {
         return this.queue;
     }
 
-    public void queue(Queue queue) {
+    public void queue(@Nullable Queue queue) {
         this.queue = queue;
     }
 

@@ -28,6 +28,11 @@ public class Ratio<T> {
     }
 
     @Nullable
+    public T next() {
+        return next(false, allPredicate, null);
+    }
+
+    @Nullable
     public T next(boolean dry) {
         return next(dry, allPredicate, null);
     }

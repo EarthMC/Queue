@@ -120,7 +120,7 @@ public class QueueConfig {
 
             Files.copy(is, configPath);
         } catch (IOException e) {
-            e.printStackTrace();
+            plugin.logger().error("while saving default config", e);
         }
     }
 
