@@ -99,7 +99,7 @@ public class QueueConfig {
             return false;
 
         for (QueuedPlayer player : plugin.queuedPlayers())
-            player.recalculatePriority();
+            player.clearPriority();
 
         return true;
     }

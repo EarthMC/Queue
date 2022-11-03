@@ -84,10 +84,9 @@ public class QueuedPlayer implements ForwardingAudience.Single {
         return NONE_PRIORITY;
     }
 
-    public void recalculatePriority() {
-        // Recalculate the priority if it's set
-        if (this.priority != null)
-            this.priority = calculatePriority();
+    public void clearPriority() {
+        // Reset the priority to null so that it's re-calculated next time #priority is called.
+        this.priority = null;
     }
 
     @Override
