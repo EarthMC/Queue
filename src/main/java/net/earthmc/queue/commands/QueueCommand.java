@@ -17,7 +17,7 @@ import java.util.Optional;
 
 public class QueueCommand extends BaseCommand implements SimpleCommand {
 
-    private static final List<String> tabCompletes = Arrays.asList("reload", "skip", "auto", "position");
+    private static final List<String> tabCompletes = Arrays.asList("reload", "skip", "auto", "position", "remove");
 
     private final QueuePlugin plugin;
 
@@ -36,6 +36,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
                 switch (args[0].toLowerCase(Locale.ROOT)) {
                     case "skip":
                     case "forget":
+                    case "remove":
                         if (hasPrefixedPermission(invocation.source(), "queue.", args[0]))
                             return filterByStart(plugin.proxy().getAllPlayers().stream().map(Player::getUsername).toList(), args[1]);
                         break;
