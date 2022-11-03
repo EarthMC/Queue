@@ -73,6 +73,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
             case "reload" -> parseQueueReload(invocation);
             case "auto" -> parseQueueAutoQueue(invocation);
             case "forget" -> parseQueueForget(invocation);
+            case "remove" -> parseQueueRemove(invocation);
             default -> invocation.source().sendMessage(Component.text(invocation.arguments()[0] + " is not a valid subcommand.", NamedTextColor.RED));
         }
     }
@@ -148,6 +149,7 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
 
         if (invocation.arguments().length < 2) {
             invocation.source().sendMessage(Component.text("Invalid usage! Usage: /queue forget <player>", NamedTextColor.RED));
+            return;
         }
 
         Optional<Player> optPlayer = plugin.proxy().getPlayer(invocation.arguments()[1]);
@@ -162,5 +164,30 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
         }
 
         invocation.source().sendMessage(Component.text(player.getUsername() + "'s position has been forgotten in all queues.", NamedTextColor.GREEN));
+    }
+
+    private void parseQueueRemove(Invocation invocation) {
+        if (!invocation.source().hasPermission("queue.remove"))
+            return;
+
+        if (invocation.arguments().length < 2) {
+            invocation.source().sendMessage(Component.text("Invalid usage! Usage: /queue remove <player>"));
+            return;
+        }
+
+        Optional<Player> optPlayer = plugin.proxy().getPlayer(invocation.arguments()[1]);
+        if (optPlayer.isEmpty()) {
+            invocation.source().sendMessage(Component.text(invocation.arguments()[1] + " is currently offline or doesn't exist.", NamedTextColor.RED));
+            return;
+        }
+
+        QueuedPlayer player = plugin.queued(optPlayer.get());
+
+        if (player.isInQueue()) {
+            Queue queue = player.queue();
+            queue.remove(player);
+            invocation.source().sendMessage(Component.text("Successfully removed " + player.name() + " from the queue for server " + queue.getServerFormatted() + ".", NamedTextColor.GREEN));
+        } else
+            invocation.source().sendMessage(Component.text(player.name() + " is not in a queue.", NamedTextColor.RED));
     }
 }
