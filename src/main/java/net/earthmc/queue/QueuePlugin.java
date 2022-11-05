@@ -188,9 +188,13 @@ public class QueuePlugin {
     public void processAutoQueue(ServerConnectedEvent event, QueuedPlayer player) {
         final UUID uuid = event.getPlayer().getUniqueId();
 
+        if (player.isAutoQueueDisabled()) {
+            player.sendMessage(Component.text("Auto queue is currently disabled, use /joinqueue " + player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()) + " to manually join or /queue auto to re-enable auto queue.", NamedTextColor.GRAY));
+            return;
+        }
+
         if (
-                player.isAutoQueueDisabled() // Player has auto queue disabled
-                || scheduledTasks.containsKey(uuid) // There's already a scheduled auto queue task for this player
+                scheduledTasks.containsKey(uuid) // There's already a scheduled auto queue task for this player
                 || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE // The player has the auto queue permission explicitly set to false
                 || !config.autoQueueSettings().autoQueueServers().contains(event.getServer().getServerInfo().getName().toLowerCase(Locale.ROOT)) // The player isn't on one of the auto queue servers.
         )
