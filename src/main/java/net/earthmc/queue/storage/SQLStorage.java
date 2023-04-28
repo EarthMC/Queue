@@ -65,8 +65,8 @@ public class SQLStorage extends Storage {
     }
 
     @Override
-    public void loadPlayer(@NotNull QueuedPlayer player) {
-        CompletableFuture.runAsync(() -> {
+    public CompletableFuture<Void> loadPlayer(@NotNull QueuedPlayer player) {
+        return CompletableFuture.runAsync(() -> {
             try (Connection connection = getConnection();
                  PreparedStatement ps = connection.prepareStatement("SELECT * FROM queue_players WHERE uuid = ? LIMIT 1")) {
                 ps.setString(1, player.uuid().toString());
@@ -84,8 +84,8 @@ public class SQLStorage extends Storage {
     }
 
     @Override
-    public void savePlayer(@NotNull QueuedPlayer player) {
-        CompletableFuture.runAsync(() -> {
+    public CompletableFuture<Void> savePlayer(@NotNull QueuedPlayer player) {
+        return CompletableFuture.runAsync(() -> {
             try (Connection connection = getConnection();
                 PreparedStatement ps = connection.prepareStatement("replace into queue_players (uuid, autoQueueDisabled, lastJoinedServer) values (?, ?, ?)")) {
                 ps.setString(1, player.uuid().toString());

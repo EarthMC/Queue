@@ -52,7 +52,8 @@ public class QueueConfig {
         this.autoQueueSettings = new AutoQueueSettings(
                 autoQueueConfig.getLong("delay"),
                 autoQueueConfig.getString("default-target"),
-                new HashSet<>(Arrays.asList(autoQueueConfig.getString("autoqueue-server").toLowerCase(Locale.ROOT).split(",")))
+                new HashSet<>(Arrays.asList(autoQueueConfig.getString("autoqueue-server").toLowerCase(Locale.ROOT).split(","))),
+                autoQueueConfig.getBoolean("insta-send", false)
         );
 
         for (Toml priority : config.getTables("priority")) {
@@ -143,7 +144,7 @@ public class QueueConfig {
         return autoQueueSettings;
     }
 
-    public record AutoQueueSettings(long delay, String defaultTarget, Set<String> autoQueueServers) {}
+    public record AutoQueueSettings(long delay, String defaultTarget, Set<String> autoQueueServers, boolean instaSend) {}
 
     public String getStorageType() {
         return config.getString("database.type");

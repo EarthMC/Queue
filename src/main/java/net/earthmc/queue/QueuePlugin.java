@@ -4,8 +4,10 @@ import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
+import com.velocitypowered.api.event.PostOrder;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
+import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent;
 import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.Subscribe;
@@ -185,6 +187,31 @@ public class QueuePlugin {
         processAutoQueue(event, player);
     }
 
+    @Subscribe(order = PostOrder.LATE)
+    public void onChooseInitialServer(PlayerChooseInitialServerEvent event) {
+        if (!config.autoQueueSettings().instaSend())
+            return;
+
+        if (scheduledTasks.containsKey(event.getPlayer().getUniqueId()) || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE)
+            return;
+
+        QueuedPlayer player = queued(event.getPlayer());
+        if (player.loadFuture() != null && player.getLastJoinedServer().isEmpty())
+            player.loadFuture().join(); // We want to ensure that player data is loaded so that we can get their last server
+
+        final String target = validateAutoQueueTarget(event.getPlayer(), player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
+
+        if (!BaseCommand.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
+            return;
+
+        Queue queue = queue(target);
+        if (queue == null || queue.getServer().getPlayersConnected().size() >= queue.maxPlayers())
+            return;
+
+        event.setInitialServer(queue.getServer());
+        logger.info(event.getPlayer().getUsername() + " has been sent to " + queue.getServerFormatted() + " via autoqueue.");
+    }
+
     public void processAutoQueue(ServerConnectedEvent event, QueuedPlayer player) {
         final UUID uuid = event.getPlayer().getUniqueId();
 
@@ -206,11 +233,7 @@ public class QueuePlugin {
             String target = player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget());
             final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
 
-            // Validate that the target is known to the proxy, it isn't an auto queue server, and the player has permissions to join it, otherwise just return the default target.
-            target = proxy.getServer(target).map(server -> server.getServerInfo().getName())
-                .filter(name -> !config.autoQueueSettings().autoQueueServers().contains(name.toLowerCase(Locale.ROOT)))
-                .filter(name -> BaseCommand.hasPrefixedPermission(event.getPlayer(), "queue.join.", name))
-                .orElse(config.autoQueueSettings().defaultTarget());
+            target = validateAutoQueueTarget(event.getPlayer(), target);
 
             // Prevent the player from being auto queued to the server they are already on
             if (target.equalsIgnoreCase(currentServerName))
@@ -227,6 +250,14 @@ public class QueuePlugin {
                 queue.enqueue(player);
             }
         }).delay(config.autoQueueSettings().delay(), TimeUnit.SECONDS).schedule());
+    }
+
+    private String validateAutoQueueTarget(Player player, String target) {
+        // Validate that the target is known to the proxy, it isn't an auto queue server, and the player has permissions to join it, otherwise just return the default target.
+        return proxy.getServer(target).map(server -> server.getServerInfo().getName())
+                .filter(name -> !config.autoQueueSettings().autoQueueServers().contains(name.toLowerCase(Locale.ROOT)))
+                .filter(name -> BaseCommand.hasPrefixedPermission(player, "queue.join.", name))
+                .orElse(config.autoQueueSettings().defaultTarget());
     }
 
     public void removeAutoQueue(Player player) {

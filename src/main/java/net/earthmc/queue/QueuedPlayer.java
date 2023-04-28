@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class QueuedPlayer implements ForwardingAudience.Single {
     private static final Priority NONE_PRIORITY = new Priority("none", 0, Component.empty());
@@ -21,6 +22,7 @@ public class QueuedPlayer implements ForwardingAudience.Single {
     private String lastJoined;
     private boolean autoQueueDisabled;
     private boolean dataLoaded = false;
+    private CompletableFuture<Void> loadFuture = null;
 
     public QueuedPlayer(@NotNull Player player) {
         this.uuid = player.getUniqueId();
@@ -107,8 +109,13 @@ public class QueuedPlayer implements ForwardingAudience.Single {
     public void loadData() {
         if (!dataLoaded) {
             dataLoaded = true;
-            QueuePlugin.instance().storage().loadPlayer(this);
+            this.loadFuture = QueuePlugin.instance().storage().loadPlayer(this).whenComplete((v, t) -> this.loadFuture = null);
         }
+    }
+
+    @Nullable
+    public CompletableFuture<Void> loadFuture() {
+        return this.loadFuture;
     }
 
     public boolean isAutoQueueDisabled() {

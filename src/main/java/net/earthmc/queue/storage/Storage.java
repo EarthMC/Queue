@@ -3,10 +3,12 @@ package net.earthmc.queue.storage;
 import net.earthmc.queue.QueuedPlayer;
 import org.jetbrains.annotations.NotNull;
 
-public abstract class Storage {
-    abstract public void loadPlayer(@NotNull QueuedPlayer player);
+import java.util.concurrent.CompletableFuture;
 
-    abstract public void savePlayer(@NotNull QueuedPlayer player);
+public abstract class Storage {
+    abstract public CompletableFuture<Void> loadPlayer(@NotNull QueuedPlayer player);
+
+    abstract public CompletableFuture<Void> savePlayer(@NotNull QueuedPlayer player);
 
     public void enable() throws Exception {}
 

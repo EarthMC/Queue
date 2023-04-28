@@ -32,8 +32,8 @@ public class FlatFileStorage extends Storage {
     }
 
     @Override
-    public void loadPlayer(@NotNull QueuedPlayer player) {
-        CompletableFuture.runAsync(() -> {
+    public CompletableFuture<Void> loadPlayer(@NotNull QueuedPlayer player) {
+        return CompletableFuture.runAsync(() -> {
             try {
                 Path dataFile = dataFolderPath.resolve(player.uuid() + ".txt");
 
@@ -51,8 +51,8 @@ public class FlatFileStorage extends Storage {
     }
 
     @Override
-    public void savePlayer(@NotNull QueuedPlayer player) {
-        CompletableFuture.runAsync(() -> {
+    public CompletableFuture<Void> savePlayer(@NotNull QueuedPlayer player) {
+        return CompletableFuture.runAsync(() -> {
             try {
                 Path dataFile = dataFolderPath.resolve(player.uuid() + ".txt");
 

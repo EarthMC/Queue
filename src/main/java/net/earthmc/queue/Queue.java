@@ -346,4 +346,8 @@ public class Queue {
     public Ratio<SubQueue> getSubQueueRatio() {
         return subQueueRatio;
     }
+
+    public int maxPlayers() {
+        return this.maxPlayers;
+    }
 }
