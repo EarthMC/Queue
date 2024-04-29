@@ -205,7 +205,7 @@ public class QueuePlugin {
             return;
 
         Queue queue = queue(target);
-        if (queue == null || queue.paused() || queue.getServer().getPlayersConnected().size() >= queue.maxPlayers())
+        if (queue == null || queue.paused() || queue.getServer().getPlayersConnected().size() + queue.allPlayers().size() >= queue.maxPlayers())
             return;
 
         event.setInitialServer(queue.getServer());
