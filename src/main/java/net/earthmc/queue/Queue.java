@@ -7,6 +7,10 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import net.earthmc.queue.object.Ratio;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.Style;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import java.time.Duration;
@@ -38,6 +42,7 @@ public class Queue {
 
     private int maxPlayers;
     private boolean paused;
+    private String pauseReason;
     private Instant unpauseTime = Instant.MAX;
     private Instant lastSendTime = Instant.EPOCH;
     private int failedAttempts;
@@ -167,7 +172,7 @@ public class Queue {
             player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players().size(), NamedTextColor.GREEN).append(Component.text(" for " + formattedName + ".", NamedTextColor.YELLOW))))));
 
             if (paused)
-                player.sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
+                sendPausedQueueMessage(player);
         }
     }
 
@@ -215,8 +220,9 @@ public class Queue {
         if (!player.priority().message().equals(Component.empty()))
             player.sendMessage(player.priority().message());
 
-        if (paused)
-            player.sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
+        if (paused) {
+            sendPausedQueueMessage(player);
+        }
     }
 
     public int insertionIndex(QueuedPlayer player, SubQueue subQueue) {
@@ -294,17 +300,38 @@ public class Queue {
     }
 
     public void pause(boolean paused) {
-        pause(paused, Instant.MAX);
+        pause(paused, Instant.MAX, null);
     }
 
     public void pause(boolean paused, Instant unpauseTime) {
+        pause(paused, unpauseTime, null);
+    }
+
+    public void pause(boolean paused, Instant unpauseTime, @Nullable String reason) {
         this.paused = paused;
         this.unpauseTime = unpauseTime;
+        this.pauseReason = reason;
         this.failedAttempts = 0;
     }
 
+    public void sendPausedQueueMessage(final QueuedPlayer player) {
+        if (!paused)
+            return;
+
+        player.sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
+
+        if (pauseReason != null)
+            player.sendMessage(Component.text("Reason: ", NamedTextColor.GRAY).append(Component.text(pauseReason, Style.style(TextDecoration.ITALIC))));
+    }
+
+    @NotNull
     public Instant unpauseTime() {
         return this.unpauseTime;
+    }
+
+    @Nullable
+    public String pauseReason() {
+        return this.pauseReason;
     }
 
     @Override

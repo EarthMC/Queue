@@ -25,13 +25,13 @@
         <dependency>
             <groupId>com.velocitypowered</groupId>
             <artifactId>velocity-api</artifactId>
-            <version>3.1.2-SNAPSHOT</version>
+            <version>3.3.0-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.30</version>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.0.31</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -81,14 +81,13 @@
                     </filters>
                     <relocations>
                         <relocation>
-                            <pattern>com.zaxxer.hikari</pattern>
-                            <shadedPattern>net.earthmc.queue.libs.hikari</shadedPattern>
+                            <pattern>com.mysql</pattern>
+                            <pattern>net.earthmc.queue.libs.mysql</pattern>
                         </relocation>
                     </relocations>
                     <artifactSet>
                         <includes>
-                            <include>com.zaxxer:HikariCP</include>
-                            <include>mysql:mysql-connector-java</include>
+                            <include>com.mysql:mysql-connector-j</include>
                         </includes>
                     </artifactSet>
                 </configuration>

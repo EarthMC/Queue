@@ -70,7 +70,7 @@ public class QueuePlugin {
 
         commandManager.register("joinqueue", new JoinCommand(this));
         commandManager.register("leavequeue", new LeaveCommand());
-        commandManager.register("pausequeue", new PauseCommand());
+        commandManager.register(PauseCommand.createCommand(this));
         commandManager.register("queue", new QueueCommand(this));
     }
 
@@ -330,21 +330,20 @@ public class QueuePlugin {
 
         if (Files.exists(pausedQueuesPath)) {
             @SuppressWarnings("UnstableApiUsage")
-            Type type = new TypeToken<Map<String, Long>>() {}.getType();
+            Type type = new TypeToken<Set<PausedQueue>>(){}.getType();
 
             try {
-                Map<String, Long> pausedQueues = new Gson().fromJson(Files.readString(pausedQueuesPath), type);
-                for (Map.Entry<String, Long> entry : pausedQueues.entrySet()) {
-                    Queue queue = queue(entry.getKey());
+                Set<PausedQueue> pausedQueues = new Gson().fromJson(Files.readString(pausedQueuesPath), type);
+                for (final PausedQueue pausedQueue : pausedQueues) {
+                    Queue queue = queue(pausedQueue.server());
                     if (queue == null)
                         continue;
 
-                    Instant instant = Instant.ofEpochSecond(entry.getValue());
-                    if (Instant.now().isAfter(instant))
+                    if (Instant.now().isAfter(pausedQueue.unpauseTime()))
                         continue;
 
-                    queue.pause(true, Instant.ofEpochSecond(entry.getValue()));
-                    logger.info("Re-paused the queue for " + entry.getKey() + ".");
+                    queue.pause(true, pausedQueue.unpauseTime(), pausedQueue.reason());
+                    logger.info("Re-paused the queue for {}.", pausedQueue.server());
                 }
 
                 try {
@@ -357,25 +356,29 @@ public class QueuePlugin {
     }
 
     public void savePausedQueues() {
-        Map<String, Long> pausedQueues = new HashMap<>();
+        Set<PausedQueue> pausedQueues = new HashSet<>();
         for (Map.Entry<String, Queue> entry : this.queues().entrySet()) {
             if (entry.getValue().paused())
-                pausedQueues.put(entry.getKey(), entry.getValue().unpauseTime().getEpochSecond());
+                pausedQueues.add(new PausedQueue(entry.getKey(), entry.getValue().unpauseTime(), entry.getValue().pauseReason()));
         }
 
-        if (pausedQueues.size() > 0) {
+        if (!pausedQueues.isEmpty()) {
             Path pausedQueuesPath = pluginFolderPath.resolve("paused-queues.json");
 
             try {
                 if (!Files.exists(pausedQueuesPath))
                     Files.createFile(pausedQueuesPath);
 
-                Files.writeString(pausedQueuesPath, new Gson().toJson(pausedQueues));
+                @SuppressWarnings("UnstableApiUsage")
+                Type type = new TypeToken<Set<PausedQueue>>(){}.getType();
+                Files.writeString(pausedQueuesPath, new Gson().toJson(pausedQueues, type));
 
-                logger.info("Successfully saved " + pausedQueues.size() + " paused queue(s) to paused-queues.json");
+                logger.info("Successfully saved {} paused queue(s) to paused-queues.json", pausedQueues.size());
             } catch (Exception e) {
-                logger.error("Unable to save " + pausedQueues.size() + " paused queues.", e);
+                logger.error("Unable to save {} paused queues.", pausedQueues.size(), e);
             }
         }
     }
+
+    private record PausedQueue(String server, Instant unpauseTime, String reason) {}
 }

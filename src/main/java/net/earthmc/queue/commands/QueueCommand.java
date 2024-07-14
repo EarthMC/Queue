@@ -7,6 +7,8 @@ import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.Style;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
@@ -58,8 +60,9 @@ public class QueueCommand extends BaseCommand implements SimpleCommand {
 
             QueuedPlayer queuedPlayer = QueuePlugin.instance().queued(player);
             player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.queue().getSubQueue(queuedPlayer).players().size(), NamedTextColor.GREEN).append(Component.text(" for " + queuedPlayer.queue().getServerFormatted(), NamedTextColor.YELLOW))))));
-            if (queuedPlayer.queue().paused())
-                player.sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
+            if (queuedPlayer.queue().paused()) {
+                queuedPlayer.queue().sendPausedQueueMessage(queuedPlayer);
+            }
 
             return;
         }
