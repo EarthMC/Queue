@@ -191,10 +191,14 @@ public class QueuePlugin {
 
     @Subscribe(order = PostOrder.LATE)
     public void onChooseInitialServer(PlayerChooseInitialServerEvent event) {
-        if (!config.autoQueueSettings().instaSend())
-            return;
+        final RegisteredServer initial = event.getInitialServer().orElse(null);
 
-        if (scheduledTasks.containsKey(event.getPlayer().getUniqueId()) || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE)
+        if (
+                !config.autoQueueSettings().instaSend()
+                || scheduledTasks.containsKey(event.getPlayer().getUniqueId())
+                || (initial != null && !config.autoQueueSettings().autoQueueServers().contains(initial.getServerInfo().getName().toLowerCase(Locale.ROOT)))
+                || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE
+        )
             return;
 
         QueuedPlayer player = queued(event.getPlayer());
