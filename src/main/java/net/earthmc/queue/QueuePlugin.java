@@ -49,7 +49,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "queue", name = "Queue", version = "0.1.2", authors = {"Warriorrr"})
+@Plugin(id = "queue", name = "Queue", version = "0.1.4", authors = {"Warriorrr"})
 public class QueuePlugin {
 
     private static QueuePlugin instance;
@@ -261,7 +261,7 @@ public class QueuePlugin {
     private String validateAutoQueueTarget(Player player, String target) {
         // Validate that the target is known to the proxy, it isn't an auto queue server, and the player has permissions to join it, otherwise just return the default target.
         return proxy.getServer(target).map(server -> server.getServerInfo().getName())
-                .filter(name -> !config.autoQueueSettings().autoQueueServers().contains(name.toLowerCase(Locale.ROOT)))
+                .filter(name -> config.autoQueueSettings().autoQueueServers().contains(name.toLowerCase(Locale.ROOT)))
                 .filter(name -> BaseCommand.hasPrefixedPermission(player, "queue.join.", name))
                 .orElse(config.autoQueueSettings().defaultTarget());
     }
