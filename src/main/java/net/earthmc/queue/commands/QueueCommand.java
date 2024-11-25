@@ -7,8 +7,6 @@ import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.Style;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;

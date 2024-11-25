@@ -4,7 +4,7 @@ import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
-import com.velocitypowered.api.event.PostOrder;
+import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent;
@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -70,10 +71,10 @@ public class QueuePlugin {
         this.logger = logger;
         this.pluginFolderPath = pluginFolderPath;
 
-        commandManager.register("joinqueue", new JoinCommand(this));
-        commandManager.register("leavequeue", new LeaveCommand());
-        commandManager.register(PauseCommand.createCommand(this));
-        commandManager.register("queue", new QueueCommand(this));
+        commandManager.register(buildMeta("joinqueue"), new JoinCommand(this));
+        commandManager.register(buildMeta("leavequeue"), new LeaveCommand());
+        commandManager.register(buildMeta("pausequeue"), PauseCommand.createCommand(this));
+        commandManager.register(buildMeta("queue"), new QueueCommand(this));
     }
 
     @Subscribe
@@ -189,7 +190,7 @@ public class QueuePlugin {
         processAutoQueue(event, player);
     }
 
-    @Subscribe(order = PostOrder.LATE)
+    @Subscribe
     public void onChooseInitialServer(PlayerChooseInitialServerEvent event) {
         final RegisteredServer initial = event.getInitialServer().orElse(null);
 
@@ -202,8 +203,9 @@ public class QueuePlugin {
             return;
 
         QueuedPlayer player = queued(event.getPlayer());
-        if (player.loadFuture() != null && player.getLastJoinedServer().isEmpty())
-            player.loadFuture().join(); // We want to ensure that player data is loaded so that we can get their last server
+        final CompletableFuture<Void> loadFuture = player.loadFuture();
+        if (loadFuture != null && player.getLastJoinedServer().isEmpty())
+            loadFuture.join(); // We want to ensure that player data is loaded so that we can get their last server
 
         final String target = validateAutoQueueTarget(event.getPlayer(), player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
 
@@ -215,7 +217,7 @@ public class QueuePlugin {
             return;
 
         event.setInitialServer(queue.getServer());
-        logger.info(event.getPlayer().getUsername() + " has been sent to " + queue.getServerFormatted() + " via autoqueue.");
+        logger.info("{} has been sent to {} via autoqueue.", event.getPlayer().getUsername(), queue.getServerFormatted());
     }
 
     public void processAutoQueue(ServerConnectedEvent event, QueuedPlayer player) {
@@ -387,4 +389,8 @@ public class QueuePlugin {
     }
 
     private record PausedQueue(String server, Instant unpauseTime, String reason) {}
+
+    private CommandMeta buildMeta(String alias) {
+        return this.proxy.getCommandManager().metaBuilder(alias).plugin(this).build();
+    }
 }

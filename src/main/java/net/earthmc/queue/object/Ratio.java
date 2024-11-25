@@ -21,6 +21,7 @@ public class Ratio<T> {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public Ratio(List<SubQueue> subQueues) {
         for (SubQueue subQueue : subQueues) {
             this.options.add(new Option<>((T) subQueue, subQueue.maxSends));
@@ -83,7 +84,7 @@ public class Ratio<T> {
         // return the first matching predicate (if any). Otherwise, just return the default value.
         // This fixes edge cases where players can get stuck in a sub queue if their sub queue has reached max uses
         // and none of the other sub queues have any players in them. Unit tested at 'testRatioWithMatchingPredicate'
-        if (predicateMatches.size() > 0)
+        if (!predicateMatches.isEmpty())
             return predicateMatches.get(0).value;
         else
             return defaultValue;

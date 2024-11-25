@@ -78,7 +78,7 @@ public class SQLStorage extends Storage {
                     }
                 }
             } catch (SQLException e) {
-                plugin.logger().error("while loading data for player " + player.name(), e);
+                plugin.logger().error("while loading data for player {}", player.name(), e);
             }
         });
     }
@@ -94,7 +94,7 @@ public class SQLStorage extends Storage {
 
                 ps.execute();
             } catch (SQLException e) {
-                plugin.logger().error("while saving data for player " + player.name(), e);
+                plugin.logger().error("while saving data for player {}", player.name(), e);
             }
         });
     }

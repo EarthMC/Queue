@@ -66,7 +66,7 @@ public class FlatFileStorage extends Storage {
                     properties.store(os, null);
                 }
             } catch (IOException e) {
-                plugin.logger().error("An error occurred when saving data for " + player.uuid(), e);
+                plugin.logger().error("An error occurred when saving data for {}", player.uuid(), e);
             }
         });
     }

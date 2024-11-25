@@ -119,7 +119,7 @@ public class Queue {
                 player.sendMessage(Component.text("You have been sent to " + formattedName + ".", NamedTextColor.GREEN));
                 failedAttempts = 0;
                 sendProgressMessages(queue);
-                plugin.logger().info(player.getUsername() + " has been sent to " + formattedName + " via queue.");
+                plugin.logger().info("{} has been sent to {} via queue.", player.getUsername(), formattedName);
             } else {
                 player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
 
@@ -134,7 +134,7 @@ public class Queue {
                 player.sendMessage(Component.text("Reason: ", reason.colorIfAbsent(NamedTextColor.RED).color()).append(reason));
             }
         }).exceptionally(e -> {
-            plugin.logger().error("An exception occurred while trying to send " + player.getUsername() + " to " + formattedName, e);
+            plugin.logger().error("An exception occurred while trying to send {} to {}", player.getUsername(), formattedName, e);
             player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
             player.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));
             toSend.queue(this);
@@ -199,7 +199,7 @@ public class Queue {
                     return;
                 } else {
                     player.sendMessage(Component.text("You have been removed from the queue for " + player.queue().getServerFormatted() + ".", NamedTextColor.RED));
-                    plugin.logger().info(player.name() + " has been removed from the queue, because they joined the queue for another.");
+                    plugin.logger().info("{} has been removed from the queue, because they joined the queue for another.", player.name());
                     player.queue().remove(player);
                 }
             }
