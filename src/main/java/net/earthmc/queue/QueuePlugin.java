@@ -49,7 +49,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "queue", name = "Queue", version = "0.1.4", authors = {"Warriorrr"})
+@Plugin(id = "queue", name = "Queue", version = BuildConstants.VERSION, authors = {"Warriorrr"})
 public class QueuePlugin {
 
     private static QueuePlugin instance;
