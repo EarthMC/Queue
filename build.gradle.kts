@@ -1,6 +1,6 @@
 plugins {
     java
-    id("com.gradleup.shadow") version "8.3.5"
+    id("com.gradleup.shadow") version "8.3.6"
 }
 
 repositories {
@@ -30,8 +30,6 @@ tasks {
     }
 
     shadowJar {
-        archiveClassifier.set("")
-
         dependencies {
             include("com.mysql:mysql-connector-j")
         }
