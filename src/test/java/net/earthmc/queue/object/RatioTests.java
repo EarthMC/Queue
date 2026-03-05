@@ -1,6 +1,5 @@
-package net.earthmc.queue;
+package net.earthmc.queue.object;
 
-import net.earthmc.queue.object.Ratio;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;

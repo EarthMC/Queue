@@ -1,6 +1,6 @@
 plugins {
     java
-    id("com.gradleup.shadow") version "8.3.6"
+    id("com.gradleup.shadow") version "9.3.2"
 }
 
 repositories {
@@ -20,9 +20,11 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockito)
     testImplementation(libs.velocity.api)
+    testRuntimeOnly(libs.junit.launcher)
+    testRuntimeOnly(libs.junit.engine)
 }
 
-java.sourceCompatibility = JavaVersion.VERSION_17
+java.sourceCompatibility = JavaVersion.VERSION_21
 
 tasks {
     assemble {
@@ -30,16 +32,14 @@ tasks {
     }
 
     shadowJar {
-        dependencies {
-            include("com.mysql:mysql-connector-j")
-        }
+        archiveClassifier.set("")
 
         relocate("com.mysql", "net.earthmc.queue.libs.mysql")
     }
 
     compileJava {
         options.encoding = "UTF-8"
-        options.release.set(17)
+        options.release.set(21)
 
         dependsOn(generateTemplates)
     }
