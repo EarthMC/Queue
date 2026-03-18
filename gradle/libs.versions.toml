@@ -11,3 +11,6 @@ junit = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "ju
 junit-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junit" }
 junit-engine = { group = "org.junit.platform", name = "junit-platform-engine", version.ref = "junit" }
 mockito = { group = "org.mockito", name = "mockito-junit-jupiter", version.ref = "mockito" }
+
+[plugins]
+shadow = { id = "com.gradleup.shadow", version = "9.4.0" }
