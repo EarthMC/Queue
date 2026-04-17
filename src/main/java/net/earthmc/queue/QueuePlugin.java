@@ -347,10 +347,12 @@ public class QueuePlugin {
                     if (queue == null)
                         continue;
 
-                    if (Instant.now().isAfter(pausedQueue.unpauseTime()))
+                    final Instant unpauseTime = Instant.ofEpochMilli(pausedQueue.unpauseTime);
+
+                    if (Instant.now().isAfter(unpauseTime))
                         continue;
 
-                    queue.pause(true, pausedQueue.unpauseTime(), pausedQueue.reason());
+                    queue.pause(true, unpauseTime, pausedQueue.reason());
                     logger.info("Re-paused the queue for {}.", pausedQueue.server());
                 }
 
@@ -367,7 +369,7 @@ public class QueuePlugin {
         Set<PausedQueue> pausedQueues = new HashSet<>();
         for (Map.Entry<String, Queue> entry : this.queues().entrySet()) {
             if (entry.getValue().paused())
-                pausedQueues.add(new PausedQueue(entry.getKey(), entry.getValue().unpauseTime(), entry.getValue().pauseReason()));
+                pausedQueues.add(new PausedQueue(entry.getKey(), entry.getValue().unpauseTime().toEpochMilli(), entry.getValue().pauseReason()));
         }
 
         if (!pausedQueues.isEmpty()) {
@@ -388,7 +390,7 @@ public class QueuePlugin {
         }
     }
 
-    private record PausedQueue(String server, Instant unpauseTime, String reason) {}
+    private record PausedQueue(String server, long unpauseTime, String reason) {}
 
     private CommandMeta buildMeta(String alias) {
         return this.proxy.getCommandManager().metaBuilder(alias).plugin(this).build();
