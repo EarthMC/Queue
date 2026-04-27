@@ -1,6 +1,7 @@
 plugins {
     id("java")
     alias(libs.plugins.shadow)
+    alias(libs.plugins.conventions.java)
 }
 
 repositories {
