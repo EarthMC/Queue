@@ -1,0 +1,18 @@
+[*]
+charset = utf-8
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+end_of_line = lf
+ij_java_continuation_indent_size = 4
+ij_continuation_indent_size = 4
+
+[*.java]
+ij_java_class_count_to_use_import_on_demand = 999999
+ij_java_names_count_to_use_import_on_demand = 999999
+ij_java_insert_inner_class_imports = false
+
+
+[*.yml]
+indent_size = 2

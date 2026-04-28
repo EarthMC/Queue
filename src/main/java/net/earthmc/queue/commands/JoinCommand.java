@@ -1,74 +1,59 @@
 package net.earthmc.queue.commands;
 
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
-import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
 import net.earthmc.queue.Queue;
 import net.earthmc.queue.QueuePlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CompletableFuture;
 
-public class JoinCommand extends BaseCommand implements SimpleCommand {
-    private final QueuePlugin plugin;
+public class JoinCommand {
+    private JoinCommand() {}
 
-    public JoinCommand(@NotNull QueuePlugin plugin) {
-        this.plugin = plugin;
-    }
+    public static BrigadierCommand createCommand(final QueuePlugin plugin) {
+        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("leavequeue")
+            .requires(source -> source instanceof Player)
+            .then(BrigadierCommand.requiredArgumentBuilder("server", StringArgumentType.string())
+                 .suggests((ctx, builder) -> {
+                     final List<String> allServers = plugin.proxy().getAllServers().stream().map(server -> server.getServerInfo().getName().toLowerCase(Locale.ROOT)).toList();
+                     return Brig.filterByPermission(ctx, builder, allServers, "queue.join.");
+                 })
+                 .executes(ctx -> {
+                     if (!(ctx.getSource() instanceof Player player)) {
+                         return Command.SINGLE_SUCCESS;
+                     }
 
-    @Override
-    public void execute(Invocation invocation) {
-        CommandSource source = invocation.source();
+                     final String server = ctx.getArgument("server", String.class);
+                     if (!Brig.hasPrefixedPermission(player, "queue.join.", server)) {
+                         player.sendMessage(Component.text(server + " is not a valid server.", NamedTextColor.RED));
+                         return 0;
+                     }
 
-        if (!(source instanceof Player player)) {
-            source.sendMessage(Component.text("This command cannot be used by console.", NamedTextColor.RED));
-            return;
-        }
+                     if (player.getCurrentServer().map(currentServer -> currentServer.getServerInfo().getName().equalsIgnoreCase(server)).orElse(false)) {
+                         player.sendMessage(Component.text("You are already connected to this server.", NamedTextColor.RED));
+                         return 0;
+                     }
 
-        if (invocation.arguments().length == 0) {
-            source.sendMessage(Component.text("Not enough arguments. Usage: /joinqueue [server].", NamedTextColor.RED));
-            return;
-        }
+                     final Queue queue = plugin.queue(server);
+                     if (queue == null) {
+                         player.sendMessage(Component.text(server + " is not a valid server.", NamedTextColor.RED));
+                         return 0;
+                     }
 
-        String server = invocation.arguments()[0];
-        if (!hasPrefixedPermission(invocation.source(), "queue.join.", server)) {
-            source.sendMessage(Component.text(server + " is not a valid server.", NamedTextColor.RED));
-            return;
-        }
+                     plugin.cancelAutoQueueTask(player);
+                     queue.enqueue(plugin.queued(player));
 
-        if (player.getCurrentServer().map(currentServer -> currentServer.getServerInfo().getName().equalsIgnoreCase(server)).orElse(false)) {
-            player.sendMessage(Component.text("You are already connected to this server.", NamedTextColor.RED));
-            return;
-        }
+                     return Command.SINGLE_SUCCESS;
+                 }))
+            .build();
 
-        Queue queue = plugin.queue(server);
-        if (queue == null) {
-            player.sendMessage(Component.text(server + " is not a valid server.", NamedTextColor.RED));
-            return;
-        }
-
-        boolean confirmation = invocation.arguments().length >= 2 && invocation.arguments()[1].equalsIgnoreCase("confirm");
-
-        // Remove auto queue for this player
-        plugin.removeAutoQueue(player);
-
-        queue.enqueue(plugin.queued(player), confirmation);
-    }
-
-    @Override
-    public CompletableFuture<List<String>> suggestAsync(Invocation invocation) {
-        return CompletableFuture.supplyAsync(() -> {
-            List<String> servers = QueuePlugin.instance().proxy().getAllServers().stream().map(server -> server.getServerInfo().getName().toLowerCase(Locale.ROOT)).toList();
-
-            if (invocation.arguments().length <= 1)
-                return filterByPermission(invocation.source(), servers, "queue.join.", invocation.arguments().length == 0 ? null : invocation.arguments()[0]);
-            else
-                return Collections.emptyList();
-        });
+        return new BrigadierCommand(node);
     }
 }

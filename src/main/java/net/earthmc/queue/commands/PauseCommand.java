@@ -16,13 +16,10 @@ import java.time.Instant;
 public class PauseCommand {
 
     public static BrigadierCommand createCommand(final QueuePlugin plugin) {
-        LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("pausequeue")
+        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("pausequeue")
                 .requires(source -> source.hasPermission("queue.pause"))
                 .then(BrigadierCommand.requiredArgumentBuilder("server", StringArgumentType.word())
-                        .suggests((ctx, builder) -> {
-                            plugin.queues().keySet().forEach(builder::suggest);
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, builder) -> Brig.filterByStart(ctx, builder, plugin.queues().keySet()))
                         .then(BrigadierCommand.requiredArgumentBuilder("reason", StringArgumentType.greedyString())
                                 .executes(context -> pause(context, context.getArgument("reason", String.class)))
                         )
@@ -42,8 +39,9 @@ public class PauseCommand {
 
         queue.pause(!queue.paused(), Instant.MAX, reason);
         String message = String.format("You have %s the queue for server %s", queue.paused() ? "paused" : "resumed", server);
-        if (reason != null)
+        if (reason != null) {
             message += " with the reason '" + reason + "'.";
+        }
 
         context.getSource().sendMessage(Component.text(message, NamedTextColor.GREEN));
         return Command.SINGLE_SUCCESS;

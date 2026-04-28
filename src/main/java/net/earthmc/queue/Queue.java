@@ -185,23 +185,14 @@ public class Queue {
     }
 
     public void enqueue(QueuedPlayer player) {
-        enqueue(player, true);
-    }
-
-    public void enqueue(QueuedPlayer player, boolean confirmation) {
         if (player.queue() != null) {
             if (player.queue().equals(this)) {
                 player.sendMessage(Component.text("You are already queued for this server.", NamedTextColor.RED));
                 return;
             } else {
-                if (!confirmation) {
-                    player.sendMessage(Component.text("You already already queued for another server, use /joinqueue " + this.name + " confirm to confirm.", NamedTextColor.RED));
-                    return;
-                } else {
-                    player.sendMessage(Component.text("You have been removed from the queue for " + player.queue().getServerFormatted() + ".", NamedTextColor.RED));
-                    plugin.logger().info("{} has been removed from the queue, because they joined the queue for another.", player.name());
-                    player.queue().remove(player);
-                }
+                player.sendMessage(Component.text("You have been removed from the queue for " + player.queue().getServerFormatted() + ".", NamedTextColor.RED));
+                plugin.logger().info("{} has been removed from the queue, because they joined the queue for another.", player.name());
+                player.queue().remove(player);
             }
         }
 

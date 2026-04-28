@@ -19,7 +19,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
-import net.earthmc.queue.commands.BaseCommand;
+import net.earthmc.queue.commands.Brig;
 import net.earthmc.queue.commands.JoinCommand;
 import net.earthmc.queue.commands.LeaveCommand;
 import net.earthmc.queue.commands.PauseCommand;
@@ -71,10 +71,10 @@ public class QueuePlugin {
         this.logger = logger;
         this.pluginFolderPath = pluginFolderPath;
 
-        commandManager.register(buildMeta("joinqueue"), new JoinCommand(this));
-        commandManager.register(buildMeta("leavequeue"), new LeaveCommand());
+        commandManager.register(buildMeta("joinqueue"), JoinCommand.createCommand(this));
+        commandManager.register(buildMeta("leavequeue"), LeaveCommand.createCommand(this));
         commandManager.register(buildMeta("pausequeue"), PauseCommand.createCommand(this));
-        commandManager.register(buildMeta("queue"), new QueueCommand(this));
+        commandManager.register(buildMeta("queue"), QueueCommand.createCommand(this));
     }
 
     @Subscribe
@@ -176,7 +176,7 @@ public class QueuePlugin {
         }
 
         queuedPlayers.remove(uuid);
-        removeAutoQueue(event.getPlayer());
+        cancelAutoQueueTask(event.getPlayer());
     }
 
     @Subscribe
@@ -209,7 +209,7 @@ public class QueuePlugin {
 
         final String target = validateAutoQueueTarget(event.getPlayer(), player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
 
-        if (!BaseCommand.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
+        if (!Brig.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
             return;
 
         Queue queue = queue(target);
@@ -248,7 +248,7 @@ public class QueuePlugin {
                 return;
 
             // Simply return if the player doesn't have permissions to join the default target.
-            if (!BaseCommand.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
+            if (!Brig.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
                 return;
 
             Queue queue = queue(target);
@@ -264,14 +264,15 @@ public class QueuePlugin {
         // Validate that the target is known to the proxy, it isn't an auto queue server, and the player has permissions to join it, otherwise just return the default target.
         return proxy.getServer(target).map(server -> server.getServerInfo().getName())
                 .filter(name -> config.autoQueueSettings().autoQueueServers().contains(name.toLowerCase(Locale.ROOT)))
-                .filter(name -> BaseCommand.hasPrefixedPermission(player, "queue.join.", name))
+                .filter(name -> Brig.hasPrefixedPermission(player, "queue.join.", name))
                 .orElse(config.autoQueueSettings().defaultTarget());
     }
 
-    public void removeAutoQueue(Player player) {
+    public void cancelAutoQueueTask(Player player) {
         ScheduledTask task = scheduledTasks.remove(player.getUniqueId());
-        if (task != null)
+        if (task != null) {
             task.cancel();
+        }
     }
 
     public Map<String, Queue> queues() {
@@ -337,7 +338,6 @@ public class QueuePlugin {
         Path pausedQueuesPath = pluginFolderPath.resolve("paused-queues.json");
 
         if (Files.exists(pausedQueuesPath)) {
-            @SuppressWarnings("UnstableApiUsage")
             Type type = new TypeToken<Set<PausedQueue>>(){}.getType();
 
             try {
@@ -379,7 +379,6 @@ public class QueuePlugin {
                 if (!Files.exists(pausedQueuesPath))
                     Files.createFile(pausedQueuesPath);
 
-                @SuppressWarnings("UnstableApiUsage")
                 Type type = new TypeToken<Set<PausedQueue>>(){}.getType();
                 Files.writeString(pausedQueuesPath, new Gson().toJson(pausedQueues, type));
 

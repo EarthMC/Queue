@@ -1,38 +1,41 @@
 package net.earthmc.queue.commands;
 
-import com.velocitypowered.api.command.SimpleCommand;
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.velocitypowered.api.command.BrigadierCommand;
+import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
-import java.util.Collections;
-import java.util.List;
+public class LeaveCommand {
 
-public class LeaveCommand extends BaseCommand implements SimpleCommand {
+    private LeaveCommand() {}
 
-    @Override
-    public void execute(Invocation invocation) {
-        if (!(invocation.source() instanceof Player player)) {
-            invocation.source().sendMessage(Component.text("This command cannot be used by console.", NamedTextColor.RED));
-            return;
-        }
+    public static BrigadierCommand createCommand(final QueuePlugin plugin) {
+        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("leavequeue")
+            .requires(source -> source instanceof Player)
+            .executes(ctx -> {
+                if (!(ctx.getSource() instanceof Player player)) {
+                    return Command.SINGLE_SUCCESS;
+                }
 
-        QueuedPlayer queuedPlayer = QueuePlugin.instance().queued(player);
+                final QueuedPlayer queuedPlayer = plugin.queued(player);
 
-        if (!queuedPlayer.isInQueue()) {
-            player.sendMessage(Component.text("You are not in a queue.", NamedTextColor.RED));
-            return;
-        }
+                if (!queuedPlayer.isInQueue()) {
+                    player.sendMessage(Component.text("You are not in a queue.", NamedTextColor.RED));
+                    return Command.SINGLE_SUCCESS;
+                }
 
-        queuedPlayer.queue().remove(queuedPlayer);
-        queuedPlayer.queue(null);
-        player.sendMessage(Component.text("You have left the queue.", NamedTextColor.GREEN));
-    }
+                queuedPlayer.queue().remove(queuedPlayer);
+                queuedPlayer.queue(null);
+                player.sendMessage(Component.text("You have left the queue.", NamedTextColor.GREEN));
+                return Command.SINGLE_SUCCESS;
+            })
+            .build();
 
-    @Override
-    public List<String> suggest(Invocation invocation) {
-        return Collections.emptyList();
+        return new BrigadierCommand(node);
     }
 }
