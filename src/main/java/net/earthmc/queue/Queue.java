@@ -28,7 +28,7 @@ import java.util.function.Predicate;
  * Represents a queue for a server.
  */
 public class Queue {
-    private static final Duration TIME_BETWEEN_SENDS = Duration.ofMillis(1000);
+    private static final Duration TIME_BETWEEN_SENDS = Duration.ofMillis(500);
     private static final Predicate<SubQueue> NOT_EMPTY_PREDICATE = subQueue -> !subQueue.players().isEmpty();
 
     private final QueuePlugin plugin;
