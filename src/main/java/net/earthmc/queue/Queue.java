@@ -1,7 +1,6 @@
 package net.earthmc.queue;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Iterables;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import net.earthmc.queue.object.Ratio;
@@ -9,25 +8,24 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collection;
+import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.Vector;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 /**
  * Represents a queue for a server.
  */
-public class Queue {
+public abstract class Queue {
     private static final Duration TIME_BETWEEN_SENDS = Duration.ofMillis(500);
     private static final Predicate<SubQueue> NOT_EMPTY_PREDICATE = subQueue -> !subQueue.players().isEmpty();
 
@@ -35,19 +33,15 @@ public class Queue {
     private final List<SubQueue> subQueues;
     private final SubQueue regularQueue;
     private final Ratio<SubQueue> subQueueRatio;
-    private final Cache<UUID, Integer> rememberedPlayers = CacheBuilder.newBuilder().expireAfterWrite(15, TimeUnit.MINUTES).build();
     private final RegisteredServer server;
     private final String formattedName;
     private final String name;
 
     private int maxPlayers;
-    private boolean paused;
-    private String pauseReason;
-    private Instant unpauseTime = Instant.MAX;
     private Instant lastSendTime = Instant.EPOCH;
     private int failedAttempts;
 
-    public Queue(RegisteredServer server, QueuePlugin plugin) {
+    public Queue(RegisteredServer server, QueuePlugin plugin, List<SubQueue> subQueues) {
         this.server = server;
         this.plugin = plugin;
 
@@ -57,31 +51,26 @@ public class Queue {
         this.formattedName = name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
 
         refreshMaxPlayers();
-        this.subQueues = plugin.config().newSubQueues();
+        this.subQueues = subQueues;
         this.subQueueRatio = new Ratio<>(this.subQueues);
-        this.regularQueue = getLastElement(subQueues);
+        this.regularQueue = Iterables.getLast(this.subQueues);
     }
 
-    /**
-     * Only used for tests
-     */
     @VisibleForTesting
-    public Queue(List<SubQueue> subQueues) {
-        this.subQueues = subQueues;
+    protected Queue(final List<SubQueue> subQueues) {
+        this.plugin = null;
+        this.server = null;
+
         this.formattedName = "TestQueue";
         this.name = "testqueue";
-        this.server = null;
-        this.plugin = null;
 
+        this.subQueues = subQueues;
         this.subQueueRatio = new Ratio<>(this.subQueues);
-        this.regularQueue = getLastElement(subQueues);
+        this.regularQueue = Iterables.getLast(this.subQueues);
     }
 
     public void refreshMaxPlayers() {
-        server.ping().thenAccept(ping -> {
-            if (ping.getPlayers().isPresent())
-                this.maxPlayers = ping.getPlayers().get().getMax();
-        });
+        server.ping().thenAccept(ping -> ping.getPlayers().ifPresent(players -> this.maxPlayers = players.getMax()));
     }
 
     public void sendNext() {
@@ -89,18 +78,19 @@ public class Queue {
             return;
 
         if (failedAttempts >= 5) {
-            pause(true, Instant.now().plusSeconds(30));
-            for (QueuedPlayer player : allPlayers())
+            pause(Instant.now().plusSeconds(30));
+            for (QueuedPlayer player : allPlayers()) {
                 player.sendMessage(Component.text("Queue is paused for 30 seconds as the target server refused the last 5 players.", NamedTextColor.RED));
+            }
 
             return;
         }
 
         // Gets the queue to send the next player from.
         SubQueue queue = getNextSubQueue(false);
-        QueuedPlayer toSend = queue.removePlayer(0);
+        QueuedPlayer toSend = queue.removeFirst();
         toSend.queue(null);
-        rememberPosition(toSend, 0);
+        rememberPosition(toSend.uuid(), 0);
         Player player = toSend.player();
 
         // The player is null or the player's connection is no longer active, return
@@ -138,7 +128,7 @@ public class Queue {
             player.sendMessage(Component.text("Unable to connect you to " + formattedName + ".", NamedTextColor.RED));
             player.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));
             toSend.queue(this);
-            queue.addPlayer(toSend, 0);
+            queue.addToHead(toSend);
             failedAttempts++;
             return null;
         });
@@ -147,10 +137,11 @@ public class Queue {
     }
 
     public boolean canSend() {
-        if (paused && unpauseTime.isBefore(Instant.now())) {
-            paused = false;
-            unpauseTime = Instant.MAX;
+        boolean paused = paused();
+        if (paused && unpauseTime().isBefore(Instant.now())) {
+            unpause();
             failedAttempts = 0;
+            paused = false;
         }
 
         return !paused
@@ -165,23 +156,21 @@ public class Queue {
             return;
 
         queue.lastPositionMessageTime(Instant.now());
+        final boolean paused = this.paused();
 
-        for (QueuedPlayer player : queue.players()) {
-            rememberPosition(player);
+        int index = 0;
+        final Deque<QueuedPlayer> players = queue.players();
+        for (QueuedPlayer player : players) {
+            rememberPosition(player.uuid(), index);
 
-            player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.players().size(), NamedTextColor.GREEN).append(Component.text(" for " + formattedName + ".", NamedTextColor.YELLOW))))));
+            player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(index + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(players.size(), NamedTextColor.GREEN).append(Component.text(" for " + formattedName + ".", NamedTextColor.YELLOW))))));
 
-            if (paused)
+            if (paused) {
                 sendPausedQueueMessage(player);
+            }
+
+            index++;
         }
-    }
-
-    public void rememberPosition(QueuedPlayer player) {
-        rememberPosition(player, player.position());
-    }
-
-    public void rememberPosition(QueuedPlayer player, int index) {
-        rememberedPlayers.put(player.uuid(), index);
     }
 
     public void enqueue(QueuedPlayer player) {
@@ -198,51 +187,86 @@ public class Queue {
 
         SubQueue subQueue = getSubQueue(player);
         player.queue(this);
-
-        int index = insertionIndex(player, subQueue);
-        if (index < 0 || index >= subQueue.players().size())
-            subQueue.addPlayer(player);
-        else
-            subQueue.addPlayer(player, index);
+        final int position = addToQueue(player, subQueue);
 
         player.sendMessage(Component.text("You have joined the queue for " + formattedName + ".", NamedTextColor.GREEN));
-        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(player.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(subQueue.players().size(), NamedTextColor.GREEN)).append(Component.text(".", NamedTextColor.YELLOW)))));
+        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(position + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(subQueue.players().size(), NamedTextColor.GREEN)).append(Component.text(".", NamedTextColor.YELLOW)))));
 
         if (!player.priority().message().equals(Component.empty()))
             player.sendMessage(player.priority().message());
 
-        if (paused) {
+        if (paused()) {
             sendPausedQueueMessage(player);
         }
     }
 
-    public int insertionIndex(QueuedPlayer player, SubQueue subQueue) {
-        if (subQueue.players().isEmpty())
-            return 0;
-
-        int rememberedPosition = Optional.ofNullable(rememberedPlayers.getIfPresent(player.uuid())).orElse(subQueue.players().size());
-
-        int weight = player.priority().weight;
-        if (weight == 0)
-            return rememberedPosition;
-
-        int slot = 0;
-        for (int i = 0; i < subQueue.players().size(); i++) {
-            if (weight <= subQueue.getPlayer(i).priority().weight)
-                slot = i + 1;
+    /**
+     * Adds a player to a sub queue they are not already part of.
+     *
+     * @param player The player to add
+     * @param subQueue The sub queue to add the player to.
+     * @return The player's position within the sub queue
+     */
+    private int addToQueue(QueuedPlayer player, SubQueue subQueue) {
+        final int size = subQueue.players().size();
+        if (size == 0) {
+            subQueue.addToTail(player);
+            return 1;
         }
 
-        int priorityIndex = Math.min(slot, subQueue.players().size());
+        final OptionalInt rememberedPosition = getRememberedPosition(player.uuid());
 
-        return Math.min(rememberedPosition, priorityIndex);
+        int weight = player.priority().weight;
+        if (weight == 0 && rememberedPosition.isEmpty()) {
+            // no remembered position and no weight, add to the end of the queue
+            subQueue.addToTail(player);
+            return size + 1;
+        }
+
+        if (rememberedPosition.isPresent() && rememberedPosition.getAsInt() <= 0) {
+            subQueue.addToHead(player);
+            return 0;
+        }
+
+        final Iterator<QueuedPlayer> playerIterator = subQueue.players().iterator();
+        final int direction = 1;
+        int position = 0;
+
+        QueuedPlayer prev = null;
+        while (playerIterator.hasNext()) {
+            final QueuedPlayer next = playerIterator.next();
+
+            if (weight > next.priority().weight || (rememberedPosition.isPresent() && position >= rememberedPosition.getAsInt())) {
+                if (prev == null) {
+                    subQueue.addToHead(player);
+                    return 0;
+                } else {
+                    subQueue.addAfterPlayer(player, prev);
+                    return position;
+                }
+            }
+
+            prev = next;
+            position += direction;
+        }
+
+        subQueue.addToTail(player);
+        return size + 1;
     }
 
     public void remove(QueuedPlayer player) {
-        rememberPosition(player);
         player.queue(null);
 
-        for (SubQueue subQueue : this.subQueues)
-            subQueue.removePlayer(player);
+        for (SubQueue subQueue : this.subQueues) {
+            if (subQueue.hasPlayer(player)) {
+                final int position = subQueue.playerPosition(player);
+                if (position != -1) {
+                    rememberPosition(player.uuid(), position);
+                    subQueue.removePlayer(player);
+                    break;
+                }
+            }
+        }
     }
 
     public boolean hasPlayer(QueuedPlayer player) {
@@ -286,54 +310,12 @@ public class Queue {
         return formattedName;
     }
 
-    public boolean paused() {
-        return paused;
-    }
-
-    public void pause(boolean paused) {
-        pause(paused, Instant.MAX, null);
-    }
-
-    public void pause(boolean paused, Instant unpauseTime) {
-        pause(paused, unpauseTime, null);
-    }
-
-    public void pause(boolean paused, Instant unpauseTime, @Nullable String reason) {
-        this.paused = paused;
-        this.unpauseTime = unpauseTime;
-        this.pauseReason = reason;
-        this.failedAttempts = 0;
-    }
-
     public void sendPausedQueueMessage(final QueuedPlayer player) {
-        if (!paused)
-            return;
-
         player.sendMessage(Component.text("The queue you are currently in is paused.", NamedTextColor.GRAY));
 
-        if (pauseReason != null)
-            player.sendMessage(Component.text("Reason: ", NamedTextColor.GRAY).append(Component.text(pauseReason, Style.style(TextDecoration.ITALIC))));
-    }
-
-    @NotNull
-    public Instant unpauseTime() {
-        return this.unpauseTime;
-    }
-
-    @Nullable
-    public String pauseReason() {
-        return this.pauseReason;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (this == other)
-            return true;
-
-        if (!(other instanceof Queue queue))
-            return false;
-
-        return this.server.getServerInfo().getName().equalsIgnoreCase(queue.getServer().getServerInfo().getName());
+        final String reason = pauseReason();
+        if (reason != null)
+            player.sendMessage(Component.text("Reason: ", NamedTextColor.GRAY).append(Component.text(reason, Style.style(TextDecoration.ITALIC))));
     }
 
     public Vector<QueuedPlayer> allPlayers() {
@@ -348,19 +330,6 @@ public class Queue {
         return this.regularQueue;
     }
 
-    private SubQueue getLastElement(Collection<SubQueue> collection) {
-        SubQueue current = null;
-
-        for (SubQueue subQueue : collection)
-            current = subQueue;
-
-        return current;
-    }
-
-    public void forget(UUID uuid) {
-        this.rememberedPlayers.invalidate(uuid);
-    }
-
     public Ratio<SubQueue> getSubQueueRatio() {
         return subQueueRatio;
     }
@@ -368,4 +337,24 @@ public class Queue {
     public int maxPlayers() {
         return this.maxPlayers;
     }
+
+    public abstract boolean paused();
+
+    public void pause(final Instant unpauseTime) {
+        pause(unpauseTime, null);
+    }
+
+    public abstract void pause(final Instant unpauseTime, final @org.jspecify.annotations.Nullable String reason);
+
+    public abstract void unpause();
+
+    public abstract Instant unpauseTime();
+
+    public abstract @Nullable String pauseReason();
+
+    public abstract void rememberPosition(final UUID playerUUID, final int position);
+
+    public abstract OptionalInt getRememberedPosition(final UUID playerUUID);
+
+    public abstract void forgetPosition(final UUID playerUUID);
 }

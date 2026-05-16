@@ -25,6 +25,7 @@ import net.earthmc.queue.commands.LeaveCommand;
 import net.earthmc.queue.commands.PauseCommand;
 import net.earthmc.queue.commands.QueueCommand;
 import net.earthmc.queue.config.QueueConfig;
+import net.earthmc.queue.impl.local.LocalQueue;
 import net.earthmc.queue.storage.FlatFileStorage;
 import net.earthmc.queue.storage.SQLStorage;
 import net.earthmc.queue.storage.Storage;
@@ -83,7 +84,7 @@ public class QueuePlugin {
         this.config.load();
 
         for (RegisteredServer server : proxy.getAllServers()) {
-            queues.put(server.getServerInfo().getName().toLowerCase(Locale.ROOT), new Queue(server, this));
+            queues.put(server.getServerInfo().getName().toLowerCase(Locale.ROOT), new LocalQueue(server, this));
         }
 
         this.storage = config.getStorageType().equalsIgnoreCase("sql")
@@ -299,7 +300,7 @@ public class QueuePlugin {
         if (registeredServer.isEmpty())
             return null;
 
-        queue = new Queue(registeredServer.get(), this);
+        queue = new LocalQueue(registeredServer.get(), this);
         queues.put(serverName.toLowerCase(Locale.ROOT), queue);
 
         return queue;
@@ -352,7 +353,7 @@ public class QueuePlugin {
                     if (Instant.now().isAfter(unpauseTime))
                         continue;
 
-                    queue.pause(true, unpauseTime, pausedQueue.reason());
+                    queue.pause(unpauseTime, pausedQueue.reason());
                     logger.info("Re-paused the queue for {}.", pausedQueue.server());
                 }
 

@@ -101,7 +101,7 @@ public class QueueCommand {
                         }
 
                         for (Queue queue : plugin.queues().values()) {
-                            queue.forget(player.getUniqueId());
+                            queue.forgetPosition(player.getUniqueId());
                         }
 
                         ctx.getSource().sendMessage(Component.text(player.getUsername() + "'s position has been forgotten in all queues.", NamedTextColor.GREEN));

@@ -1,5 +1,7 @@
 package net.earthmc.queue;
 
+import net.earthmc.queue.impl.local.LocalQueue;
+import net.earthmc.queue.impl.local.LocalSubQueue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -18,9 +20,9 @@ public class QueueTests {
 
     @BeforeEach
     void initQueue() {
-        this.regular = new SubQueue("regular", 0, 1);
-        this.priority = new SubQueue("priority", 1, 1);
-        this.premium = new SubQueue("premium", 5, 3);
+        this.regular = new LocalSubQueue("regular", 0, 1);
+        this.priority = new LocalSubQueue("priority", 1, 1);
+        this.premium = new LocalSubQueue("premium", 5, 3);
 
         List<SubQueue> subQueues = new ArrayList<>();
         subQueues.add(regular);
@@ -28,9 +30,8 @@ public class QueueTests {
         subQueues.add(premium);
         Collections.sort(subQueues);
 
-        this.queue = new Queue(subQueues);
+        this.queue = new LocalQueue(subQueues);
     }
-
 
     @Test
     void testSubQueueOrdering() {

@@ -53,7 +53,7 @@ public class QueuedPlayer implements ForwardingAudience.Single {
         if (queue == null)
             return -1;
 
-        return queue.getSubQueue(this).players().indexOf(this);
+        return queue.getSubQueue(this).playerPosition(this);
     }
 
     public boolean isInQueue() {

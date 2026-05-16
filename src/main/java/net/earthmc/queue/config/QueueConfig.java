@@ -6,6 +6,7 @@ import net.earthmc.queue.Queue;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
 import net.earthmc.queue.SubQueue;
+import net.earthmc.queue.impl.local.LocalSubQueue;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
@@ -73,7 +74,7 @@ public class QueueConfig {
             long weight = subQueue.getLong("min-weight", 0L);
             long maxSends = subQueue.getLong("sends", 0L);
 
-            subQueues.add(new SubQueue(name, (int) weight, (int) maxSends));
+            subQueues.add(new LocalSubQueue(name, (int) weight, (int) maxSends));
             QueuePlugin.debug("Added new subqueue with name " + name + ".");
 
             if (weight == 0)
@@ -81,7 +82,7 @@ public class QueueConfig {
         }
 
         if (!hasRegularQueue)
-            subQueues.add(new SubQueue("regular", 0, 1));
+            subQueues.add(new LocalSubQueue("regular", 0, 1));
 
         Collections.sort(subQueues);
 
@@ -129,7 +130,7 @@ public class QueueConfig {
         List<SubQueue> newSubQueues = new ArrayList<>();
 
         for (SubQueue subQueue : this.subQueues)
-            newSubQueues.add(new SubQueue(subQueue.name(), subQueue.weight(), subQueue.maxSends()));
+            newSubQueues.add(new LocalSubQueue(subQueue.name(), subQueue.weight(), subQueue.maxSends()));
 
         Collections.sort(newSubQueues);
 

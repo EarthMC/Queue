@@ -1,14 +1,16 @@
 package net.earthmc.queue;
 
 import net.earthmc.queue.object.Weighted;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NullMarked;
 
 import java.time.Instant;
-import java.util.Vector;
+import java.util.Deque;
+import java.util.NoSuchElementException;
+import java.util.Set;
 
-public class SubQueue extends Weighted {
+@NullMarked
+public abstract class SubQueue extends Weighted {
     private final String name;
-    private final Vector<QueuedPlayer> players = new Vector<>(0);
     private Instant lastPositionMessageTime = Instant.EPOCH;
     public final int maxSends;
 
@@ -18,37 +20,51 @@ public class SubQueue extends Weighted {
         this.maxSends = maxSends;
     }
 
-    public Vector<QueuedPlayer> players() {
-        return this.players;
-    }
+    public abstract Deque<QueuedPlayer> players();
 
-    public boolean hasPlayer(@NotNull QueuedPlayer player) {
-        return players.contains(player);
-    }
+    public abstract Set<QueuedPlayer> playerSet();
 
-    public void addPlayer(@NotNull QueuedPlayer player) {
+    public void addPlayer(QueuedPlayer player) {
         QueuePlugin.debug("Added player " + player.name() + " to subqueue " + this.name);
-        players.add(player);
+        players().addLast(player);
     }
 
-    public void addPlayer(@NotNull QueuedPlayer player, int index) {
-        QueuePlugin.debug("Added player " + player.name() + " to subqueue " + this.name + " at position " + index);
-        players.add(index, player);
+    public abstract void addAfterPlayer(QueuedPlayer player, QueuedPlayer anchor);
+
+    public abstract int playerPosition(QueuedPlayer player);
+
+    public boolean removePlayer(QueuedPlayer player) {
+        if (playerSet().remove(player)) {
+            QueuePlugin.debug("Removed player " + player.name() + " from subqueue " + this.name);
+            players().remove(player);
+            return true;
+        } else {
+            return false;
+        }
     }
 
-    public void removePlayer(@NotNull QueuedPlayer player) {
-        QueuePlugin.debug("Removed player " + player.name() + " from subqueue " + this.name);
-        players.remove(player);
+    public void addToTail(QueuedPlayer player) {
+        QueuePlugin.debug("Added player " + player.name() + " to the end of subqueue " + this.name);
+        players().addLast(player);
+        playerSet().add(player);
     }
 
-    public QueuedPlayer removePlayer(int index) {
-        QueuePlugin.debug("Removed player at position " + index + " from subqueue " + this.name);
-        return players.remove(index);
+    public void addToHead(QueuedPlayer player) {
+        QueuePlugin.debug("Added player " + player.name() + " to the head of subqueue " + this.name);
+        players().addFirst(player);
+        playerSet().add(player);
     }
 
-    @NotNull
-    public QueuedPlayer getPlayer(int index) throws IndexOutOfBoundsException {
-        return players.get(index);
+    public QueuedPlayer removeFirst() throws NoSuchElementException {
+        final QueuedPlayer player = players().removeFirst();
+        QueuePlugin.debug("Removed player " + player.name() + " as the first player of subqueue " + this.name);
+        playerSet().remove(player);
+
+        return player;
+    }
+
+    public boolean hasPlayer(final QueuedPlayer player) {
+        return playerSet().contains(player);
     }
 
     public String name() {
@@ -59,33 +75,11 @@ public class SubQueue extends Weighted {
         return maxSends;
     }
 
-    public void lastPositionMessageTime(@NotNull Instant instant) {
+    public void lastPositionMessageTime(Instant instant) {
         this.lastPositionMessageTime = instant;
     }
 
     public Instant lastPositionMessageTime() {
         return this.lastPositionMessageTime;
-    }
-
-    @Override
-    public String toString() {
-        return "SubQueue{" +
-                "name='" + name + '\'' +
-                ", players=" + players +
-                ", lastPositionMessageTime=" + lastPositionMessageTime +
-                ", maxSends=" + maxSends +
-                ", weight=" + weight +
-                '}';
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (other == this)
-            return true;
-
-        if (!(other instanceof SubQueue subQueue))
-            return false;
-
-        return subQueue.name().equals(this.name);
     }
 }

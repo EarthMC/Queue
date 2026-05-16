@@ -37,8 +37,15 @@ public class PauseCommand {
             return 0;
         }
 
-        queue.pause(!queue.paused(), Instant.MAX, reason);
-        String message = String.format("You have %s the queue for server %s", queue.paused() ? "paused" : "resumed", server);
+        final boolean paused = queue.paused();
+        if (paused) {
+            queue.pause(Instant.MAX, reason);
+        } else {
+            queue.unpause();
+        }
+
+        final boolean newPaused = !paused;
+        String message = String.format("You have %s the queue for server %s", newPaused ? "paused" : "resumed", server);
         if (reason != null) {
             message += " with the reason '" + reason + "'.";
         }
