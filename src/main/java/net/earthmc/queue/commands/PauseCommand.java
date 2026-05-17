@@ -38,7 +38,7 @@ public class PauseCommand {
         }
 
         final boolean paused = queue.paused();
-        if (paused) {
+        if (!paused) {
             queue.pause(Instant.MAX, reason);
         } else {
             queue.unpause();

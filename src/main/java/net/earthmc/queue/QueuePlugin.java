@@ -357,7 +357,7 @@ public class QueuePlugin {
                     if (queue == null)
                         continue;
 
-                    final Instant unpauseTime = Instant.ofEpochMilli(pausedQueue.unpauseTime);
+                    final Instant unpauseTime = Instant.ofEpochSecond(pausedQueue.unpauseTime);
 
                     if (Instant.now().isAfter(unpauseTime))
                         continue;
@@ -378,8 +378,9 @@ public class QueuePlugin {
     public void savePausedQueues() {
         Set<PausedQueue> pausedQueues = new HashSet<>();
         for (Map.Entry<String, Queue> entry : this.queues().entrySet()) {
-            if (entry.getValue().paused())
-                pausedQueues.add(new PausedQueue(entry.getKey(), entry.getValue().unpauseTime().toEpochMilli(), entry.getValue().pauseReason()));
+            if (entry.getValue().paused()) {
+                pausedQueues.add(new PausedQueue(entry.getKey(), entry.getValue().unpauseTime().getEpochSecond(), entry.getValue().pauseReason()));
+            }
         }
 
         if (!pausedQueues.isEmpty()) {
