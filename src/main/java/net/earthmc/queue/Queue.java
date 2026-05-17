@@ -302,6 +302,10 @@ public abstract class Queue {
         return regularQueue;
     }
 
+    public List<SubQueue> getSubQueues() {
+        return subQueues;
+    }
+
     public RegisteredServer getServer() {
         return server;
     }

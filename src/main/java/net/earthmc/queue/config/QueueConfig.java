@@ -9,6 +9,7 @@ import net.earthmc.queue.SubQueue;
 import net.earthmc.queue.impl.local.LocalSubQueue;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.jetbrains.annotations.Unmodifiable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,14 +26,17 @@ import java.util.Map;
 import java.util.Set;
 
 public class QueueConfig {
+    private static final String CONFIG_FILE_NAME = "config.toml";
+
     private final QueuePlugin plugin;
     private final Path dataFolder;
     private final Path configPath;
     private Toml config;
+
     private List<Priority> priorities;
     private List<SubQueue> subQueues;
+    private List<String> subQueueNames = List.of();
     private AutoQueueSettings autoQueueSettings;
-    private static final String CONFIG_FILE_NAME = "config.toml";
 
     public QueueConfig(QueuePlugin plugin, Path pluginFolder) {
         this.plugin = plugin;
@@ -87,8 +91,13 @@ public class QueueConfig {
         Collections.sort(subQueues);
 
         Map<SubQueue, Integer> ratios = new HashMap<>();
-        for (SubQueue subQueue : this.subQueues)
+        List<String> subQueueNames = new ArrayList<>();
+        for (SubQueue subQueue : this.subQueues) {
             ratios.put(subQueue, subQueue.maxSends);
+            subQueueNames.add(subQueue.name());
+        }
+
+        this.subQueueNames = List.copyOf(subQueueNames);
 
         for (Queue queue : plugin.queues().values())
             queue.getSubQueueRatio().updateOptions(ratios);
@@ -135,6 +144,10 @@ public class QueueConfig {
         Collections.sort(newSubQueues);
 
         return newSubQueues;
+    }
+
+    public @Unmodifiable List<String> subQueueNames() {
+        return subQueueNames;
     }
 
     public List<Priority> priorities() {

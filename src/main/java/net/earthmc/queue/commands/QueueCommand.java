@@ -10,8 +10,14 @@ import com.velocitypowered.api.proxy.Player;
 import net.earthmc.queue.Queue;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
+import net.earthmc.queue.SubQueue;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.jspecify.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class QueueCommand {
 
@@ -130,6 +136,17 @@ public class QueueCommand {
                         }
                         return Command.SINGLE_SUCCESS;
                     })))
+            .then(BrigadierCommand.literalArgumentBuilder("list")
+                .requires(source -> source.hasPermission("queue.list"))
+                .then(BrigadierCommand.requiredArgumentBuilder("queue", StringArgumentType.string())
+                    .suggests(Brig::suggestServers)
+                    .executes(QueueCommand::sendTotalQueueSize)
+                    .then(BrigadierCommand.requiredArgumentBuilder("subqueue", StringArgumentType.string())
+                        .suggests((ctx, builder) -> Brig.filterByStart(ctx, builder, plugin.config().subQueueNames()))
+                        .executes(ctx -> sendQueueList(ctx, ctx.getArgument("subqueue", String.class))))
+                    .then(BrigadierCommand.literalArgumentBuilder("all")
+                        .executes(ctx -> sendQueueList(ctx, null)))
+                ))
             .build();
 
         return new BrigadierCommand(node);
@@ -139,7 +156,7 @@ public class QueueCommand {
         final QueuedPlayer queuedPlayer;
         if (!(ctx.getSource() instanceof Player player) || !(queuedPlayer = QueuePlugin.instance().queued(player)).isInQueue()) {
             ctx.getSource().sendMessage(Component.text("You are not in a queue.", NamedTextColor.RED));
-            return Command.SINGLE_SUCCESS;
+            return 0;
         }
 
         player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.queue().getSubQueue(queuedPlayer).players().size(), NamedTextColor.GREEN).append(Component.text(" for " + queuedPlayer.queue().getServerFormatted(), NamedTextColor.YELLOW))))));
@@ -148,5 +165,71 @@ public class QueueCommand {
         }
 
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static int sendTotalQueueSize(final CommandContext<CommandSource> ctx) {
+        final Queue queue = validateQueue(ctx);
+        if (queue == null) {
+            return 0;
+        }
+
+        int playerCount = 0;
+
+        final List<Component> subQueueComponents = new ArrayList<>();
+        for (final SubQueue subQueue : queue.getSubQueues()) {
+            final int subQueuePlayers = subQueue.players().size();
+            playerCount += subQueuePlayers;
+
+            subQueueComponents.add(Component.text(subQueue.name() + ": " + subQueuePlayers, NamedTextColor.GREEN));
+        }
+
+        ctx.getSource().sendMessage(Component.text("There are currently ", NamedTextColor.YELLOW).append(Component.text(playerCount, NamedTextColor.GREEN)).append(Component.text(" player" + (playerCount == 1 ? "" : "s") + " in the queue for " + queue.getServerFormatted() + ".")));
+        ctx.getSource().sendMessage(Component.text("Subqueue breakdown: ", NamedTextColor.YELLOW).append(Component.join(JoinConfiguration.spaces(), subQueueComponents)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int sendQueueList(final CommandContext<CommandSource> ctx, final @Nullable String subQueueName) {
+        final Queue queue = validateQueue(ctx);
+        if (queue == null) {
+            return 0;
+        }
+
+        int successCount = 0;
+        for (final SubQueue subQueue : queue.getSubQueues()) {
+            if (subQueueName == null || subQueue.name().equalsIgnoreCase(subQueueName)) {
+                successCount++;
+                sendQueueList(ctx, queue, subQueue);
+            }
+        }
+
+        if (successCount == 0) {
+            ctx.getSource().sendMessage(Component.text("Could not find any subqueues with name '" + subQueueName + "'.", NamedTextColor.RED));
+        }
+
+        return successCount;
+    }
+
+    private static void sendQueueList(final CommandContext<CommandSource> ctx, final Queue queue, final SubQueue subQueue) {
+        final List<String> playerNames = new ArrayList<>();
+        for (final QueuedPlayer player : subQueue.players()) {
+            playerNames.add(player.name());
+        }
+
+        ctx.getSource().sendMessage(Component.text("Queue for " + queue.getServerFormatted() + " (" + subQueue.name() + ") [" + playerNames.size() + "]: ", NamedTextColor.YELLOW).append(Component.text(String.join(", ", playerNames), NamedTextColor.GREEN)));
+    }
+
+    private static @Nullable Queue validateQueue(final CommandContext<CommandSource> ctx) {
+        final String queueName = ctx.getArgument("queue", String.class);
+        if (!Brig.hasPrefixedPermission(ctx.getSource(), "queue.join.", queueName)) {
+            ctx.getSource().sendMessage(Component.text(queueName + " is not a valid server.", NamedTextColor.RED));
+            return null;
+        }
+
+        final Queue queue = QueuePlugin.instance().queue(queueName);
+        if (queue == null) {
+            ctx.getSource().sendMessage(Component.text(queueName + " is not a valid server.", NamedTextColor.RED));
+        }
+
+        return queue;
     }
 }

@@ -48,4 +48,9 @@ public class Brig {
         final List<String> onlinePlayers = QueuePlugin.instance().proxy().getAllPlayers().stream().map(Player::getUsername).toList();
         return filterByStart(context, builder, onlinePlayers);
     }
+
+    public static CompletableFuture<Suggestions> suggestServers(final CommandContext<CommandSource> context, final SuggestionsBuilder builder) {
+        final List<String> allServers = QueuePlugin.instance().proxy().getAllServers().stream().map(server -> server.getServerInfo().getName().toLowerCase(Locale.ROOT)).toList();
+        return Brig.filterByPermission(context, builder, allServers, "queue.join.");
+    }
 }

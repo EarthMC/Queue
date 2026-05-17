@@ -11,9 +11,6 @@ import net.earthmc.queue.QueuePlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
-import java.util.List;
-import java.util.Locale;
-
 public class JoinCommand {
     private JoinCommand() {}
 
@@ -21,10 +18,7 @@ public class JoinCommand {
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("leavequeue")
             .requires(source -> source instanceof Player)
             .then(BrigadierCommand.requiredArgumentBuilder("server", StringArgumentType.string())
-                 .suggests((ctx, builder) -> {
-                     final List<String> allServers = plugin.proxy().getAllServers().stream().map(server -> server.getServerInfo().getName().toLowerCase(Locale.ROOT)).toList();
-                     return Brig.filterByPermission(ctx, builder, allServers, "queue.join.");
-                 })
+                 .suggests(Brig::suggestServers)
                  .executes(ctx -> {
                      if (!(ctx.getSource() instanceof Player player)) {
                          return Command.SINGLE_SUCCESS;
