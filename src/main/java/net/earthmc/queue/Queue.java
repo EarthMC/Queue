@@ -217,8 +217,8 @@ public abstract class Queue {
         final OptionalInt rememberedPosition = getRememberedPosition(player.uuid());
 
         int weight = player.priority().weight;
-        if (weight == 0 && rememberedPosition.isEmpty()) {
-            // no remembered position and no weight, add to the end of the queue
+        if (weight <= subQueue.weight() && (rememberedPosition.isEmpty() || rememberedPosition.getAsInt() >= size - 1)) {
+            // no remembered position and no extra weight, add to the end of the queue
             subQueue.addToTail(player);
             return size + 1;
         }
