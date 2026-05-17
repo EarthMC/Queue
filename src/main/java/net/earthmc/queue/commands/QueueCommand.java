@@ -147,6 +147,20 @@ public class QueueCommand {
                     .then(BrigadierCommand.literalArgumentBuilder("all")
                         .executes(ctx -> sendQueueList(ctx, null)))
                 ))
+            .then(BrigadierCommand.literalArgumentBuilder("pause")
+                .requires(source -> source.hasPermission("queue.pause"))
+                .then(BrigadierCommand.requiredArgumentBuilder("server", StringArgumentType.string())
+                    .suggests(Brig::suggestServers)
+                    .executes(ctx -> PauseCommand.pause(ctx, true, null))
+                    .then(BrigadierCommand.requiredArgumentBuilder("reason", StringArgumentType.string())
+                        .executes(ctx -> PauseCommand.pause(ctx, true, ctx.getArgument("reason", String.class)))
+                    )))
+            .then(BrigadierCommand.literalArgumentBuilder("unpause")
+                .requires(source -> source.hasPermission("queue.pause"))
+                .then(BrigadierCommand.requiredArgumentBuilder("server", StringArgumentType.string())
+                    .suggests(Brig::suggestServers)
+                    .executes(ctx -> PauseCommand.pause(ctx, false, null)
+                )))
             .build();
 
         return new BrigadierCommand(node);
