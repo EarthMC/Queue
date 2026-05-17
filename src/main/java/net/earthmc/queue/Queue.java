@@ -326,6 +326,15 @@ public abstract class Queue {
         return allPlayers;
     }
 
+    public int playerCount() {
+        int count = 0;
+        for (final SubQueue subQueue : this.subQueues) {
+            count += subQueue.players().size();
+        }
+
+        return count;
+    }
+
     public SubQueue getRegularQueue() {
         return this.regularQueue;
     }

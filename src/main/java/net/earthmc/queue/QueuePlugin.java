@@ -214,9 +214,11 @@ public class QueuePlugin {
         if (!Brig.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
             return;
 
-        Queue queue = queue(target);
-        if (queue == null || queue.paused() || queue.getServer().getPlayersConnected().size() + queue.allPlayers().size() >= queue.maxPlayers())
+        final Queue queue = queue(target);
+        final int playerCount;
+        if (queue == null || queue.paused() || (playerCount = queue.playerCount()) > 1 || queue.getServer().getPlayersConnected().size() + playerCount >= queue.maxPlayers()) {
             return;
+        }
 
         event.setInitialServer(queue.getServer());
         logger.info("{} has been sent to {} via autoqueue.", event.getPlayer().getUsername(), queue.getServerFormatted());
