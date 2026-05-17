@@ -30,6 +30,7 @@ import net.earthmc.queue.storage.FlatFileStorage;
 import net.earthmc.queue.storage.SQLStorage;
 import net.earthmc.queue.storage.Storage;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -63,7 +64,7 @@ public class QueuePlugin {
     private QueueConfig config;
     private boolean debug = false;
     private Storage storage;
-    private final Map<UUID, ScheduledTask> scheduledTasks = new ConcurrentHashMap<>();
+    private final Map<UUID, ScheduledTask> autoAddToQueueTasks = new ConcurrentHashMap<>();
 
     @Inject
     public QueuePlugin(ProxyServer proxy, CommandManager commandManager, Logger logger, @DataDirectory Path pluginFolderPath) {
@@ -197,7 +198,7 @@ public class QueuePlugin {
 
         if (
                 !config.autoQueueSettings().instaSend()
-                || scheduledTasks.containsKey(event.getPlayer().getUniqueId())
+                || autoAddToQueueTasks.containsKey(event.getPlayer().getUniqueId())
                 || (initial != null && !config.autoQueueSettings().autoQueueServers().contains(initial.getServerInfo().getName().toLowerCase(Locale.ROOT)))
                 || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE
         )
@@ -225,19 +226,25 @@ public class QueuePlugin {
         final UUID uuid = event.getPlayer().getUniqueId();
 
         if (
-                scheduledTasks.containsKey(uuid) // There's already a scheduled auto queue task for this player
+                autoAddToQueueTasks.containsKey(uuid) // There's already a scheduled auto queue task for this player
                 || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE // The player has the auto queue permission explicitly set to false
                 || !config.autoQueueSettings().autoQueueServers().contains(event.getServer().getServerInfo().getName().toLowerCase(Locale.ROOT)) // The player isn't on one of the auto queue servers.
         )
             return;
 
         if (player.isAutoQueueDisabled()) {
-            player.sendMessage(Component.text("Auto queue is currently disabled, use /joinqueue " + player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()) + " to manually join or /queue auto to re-enable auto queue.", NamedTextColor.GRAY));
+            final String target = validateAutoQueueTarget(event.getPlayer(), player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
+
+            player.sendMessage(Component.text("Auto queue is currently disabled, use ", NamedTextColor.GRAY)
+                .append(Component.text("/joinqueue " + target).clickEvent(ClickEvent.runCommand("/joinqueue " + target)))
+                .append(Component.text(" to manually join or "))
+                .append(Component.text("/queue auto").clickEvent(ClickEvent.runCommand("/queue auto")))
+                .append(Component.text(" to re-enable auto queue.")));
             return;
         }
 
-        scheduledTasks.put(uuid, proxy().getScheduler().buildTask(this, () -> {
-            scheduledTasks.remove(uuid);
+        autoAddToQueueTasks.put(uuid, proxy().getScheduler().buildTask(this, () -> {
+            autoAddToQueueTasks.remove(uuid);
 
             String target = player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget());
             final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
@@ -270,7 +277,7 @@ public class QueuePlugin {
     }
 
     public void cancelAutoQueueTask(Player player) {
-        ScheduledTask task = scheduledTasks.remove(player.getUniqueId());
+        ScheduledTask task = autoAddToQueueTasks.remove(player.getUniqueId());
         if (task != null) {
             task.cancel();
         }
