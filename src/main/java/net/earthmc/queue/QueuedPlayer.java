@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -132,5 +133,16 @@ public class QueuedPlayer implements ForwardingAudience.Single {
 
     public void setLastJoinedServer(@Nullable String lastJoinedServer) {
         this.lastJoined = lastJoinedServer;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof QueuedPlayer player)) return false;
+        return Objects.equals(uuid, player.uuid);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(uuid);
     }
 }

@@ -1,5 +1,6 @@
 package net.earthmc.queue;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
@@ -8,18 +9,19 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.OptionalInt;
 import java.util.UUID;
-import java.util.Vector;
 import java.util.function.Predicate;
 
 /**
@@ -322,12 +324,13 @@ public abstract class Queue {
             player.sendMessage(Component.text("Reason: ", NamedTextColor.GRAY).append(Component.text(reason, Style.style(TextDecoration.ITALIC))));
     }
 
-    public Vector<QueuedPlayer> allPlayers() {
-        Vector<QueuedPlayer> allPlayers = new Vector<>();
-        for (SubQueue subQueue : subQueues)
+    public @Unmodifiable Collection<QueuedPlayer> allPlayers() {
+        ImmutableSet.Builder<QueuedPlayer> allPlayers = ImmutableSet.builder();
+        for (SubQueue subQueue : subQueues) {
             allPlayers.addAll(subQueue.players());
+        }
 
-        return allPlayers;
+        return allPlayers.build();
     }
 
     public int playerCount() {
