@@ -2,6 +2,7 @@ plugins {
     id("java")
     alias(libs.plugins.shadow)
     alias(libs.plugins.conventions.java)
+    id("jacoco")
 }
 
 repositories {
@@ -13,6 +14,8 @@ repositories {
     }
 }
 
+val mockitoAgent = configurations.create("mockitoAgent")
+
 dependencies {
     compileOnly(libs.velocity.api)
     annotationProcessor(libs.velocity.api)
@@ -23,6 +26,8 @@ dependencies {
     testImplementation(libs.velocity.api)
     testRuntimeOnly(libs.junit.launcher)
     testRuntimeOnly(libs.junit.engine)
+
+    mockitoAgent(libs.mockito) { isTransitive = false }
 }
 
 java.sourceCompatibility = JavaVersion.VERSION_21
@@ -47,6 +52,12 @@ tasks {
 
     test {
         useJUnitPlatform()
+        jvmArgs.add("-javaagent:${mockitoAgent.asPath}")
+        finalizedBy(jacocoTestReport)
+    }
+
+    jacocoTestReport {
+        dependsOn(test)
     }
 }
 

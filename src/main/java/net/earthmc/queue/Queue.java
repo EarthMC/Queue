@@ -207,7 +207,7 @@ public abstract class Queue {
      * @param subQueue The sub queue to add the player to.
      * @return The player's position within the sub queue
      */
-    private int addToQueue(QueuedPlayer player, SubQueue subQueue) {
+    protected int addToQueue(QueuedPlayer player, SubQueue subQueue) {
         final int size = subQueue.players().size();
         if (size == 0) {
             subQueue.addToTail(player);

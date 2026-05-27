@@ -13,7 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class QueuedPlayer implements ForwardingAudience.Single {
-    private static final Priority NONE_PRIORITY = new Priority("none", 0, Component.empty());
+    protected static final Priority NONE_PRIORITY = new Priority("none", 0, Component.empty());
 
     private final UUID uuid;
     private final String name;
