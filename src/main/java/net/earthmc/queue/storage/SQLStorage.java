@@ -1,7 +1,7 @@
 package net.earthmc.queue.storage;
 
+import net.earthmc.queue.PlayerData;
 import net.earthmc.queue.QueuePlugin;
-import net.earthmc.queue.QueuedPlayer;
 import org.jetbrains.annotations.NotNull;
 
 import java.sql.Connection;
@@ -10,6 +10,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class SQLStorage extends Storage {
@@ -65,36 +66,39 @@ public class SQLStorage extends Storage {
     }
 
     @Override
-    public CompletableFuture<Void> loadPlayer(@NotNull QueuedPlayer player) {
-        return CompletableFuture.runAsync(() -> {
+    public CompletableFuture<PlayerData> loadPlayer(@NotNull UUID uuid) {
+        return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection();
                  PreparedStatement ps = connection.prepareStatement("SELECT * FROM queue_players WHERE uuid = ? LIMIT 1")) {
-                ps.setString(1, player.uuid().toString());
+                ps.setString(1, uuid.toString());
 
                 try (ResultSet resultSet = ps.executeQuery()) {
                     if (resultSet.next()) {
-                        player.setLastJoinedServer(resultSet.getString("lastJoinedServer"));
-                        player.setAutoQueueDisabled(resultSet.getBoolean("autoQueueDisabled"));
+                        return new PlayerData(
+                            resultSet.getBoolean("autoQueueDisabled"),
+                            resultSet.getString("lastJoinedServer")
+                        );
                     }
                 }
             } catch (SQLException e) {
-                plugin.logger().error("while loading data for player {}", player.name(), e);
+                plugin.logger().error("while loading data for player {}", uuid, e);
             }
+            return new PlayerData(false, null);
         });
     }
 
     @Override
-    public CompletableFuture<Void> savePlayer(@NotNull QueuedPlayer player) {
+    public CompletableFuture<Void> savePlayer(final UUID uuid, PlayerData data) {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = getConnection();
                 PreparedStatement ps = connection.prepareStatement("replace into queue_players (uuid, autoQueueDisabled, lastJoinedServer) values (?, ?, ?)")) {
-                ps.setString(1, player.uuid().toString());
-                ps.setBoolean(2, player.isAutoQueueDisabled());
-                ps.setString(3, player.getLastJoinedServer().orElse(null));
+                ps.setString(1, uuid.toString());
+                ps.setBoolean(2, data.isAutoQueueDisabled());
+                ps.setString(3, data.getLastJoinedServer().orElse(null));
 
                 ps.execute();
             } catch (SQLException e) {
-                plugin.logger().error("while saving data for player {}", player.name(), e);
+                plugin.logger().error("while saving data for player {}", uuid, e);
             }
         });
     }

@@ -6,3 +6,4 @@ pluginManagement {
 }
 
 rootProject.name = "Queue"
+include("mycelium-api")

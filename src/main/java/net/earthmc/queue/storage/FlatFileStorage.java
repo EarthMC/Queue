@@ -1,7 +1,7 @@
 package net.earthmc.queue.storage;
 
+import net.earthmc.queue.PlayerData;
 import net.earthmc.queue.QueuePlugin;
-import net.earthmc.queue.QueuedPlayer;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class FlatFileStorage extends Storage {
@@ -32,41 +33,41 @@ public class FlatFileStorage extends Storage {
     }
 
     @Override
-    public CompletableFuture<Void> loadPlayer(@NotNull QueuedPlayer player) {
-        return CompletableFuture.runAsync(() -> {
-            try {
-                Path dataFile = dataFolderPath.resolve(player.uuid() + ".txt");
+    public CompletableFuture<PlayerData> loadPlayer(@NotNull UUID uuid) {
+        return CompletableFuture.supplyAsync(() -> {
+            final Path dataFile = dataFolderPath.resolve(uuid + ".txt");
 
-                if (!Files.exists(dataFile))
-                    return;
-
+            if (Files.exists(dataFile)) {
                 Properties properties = new Properties();
                 try (InputStream is = Files.newInputStream(dataFile)) {
                     properties.load(is);
-                    player.setAutoQueueDisabled(Boolean.parseBoolean(properties.getProperty("autoQueueDisabled", "false")));
-                    player.setLastJoinedServer(properties.getProperty("lastJoinedServer"));
-                }
-            } catch (IOException ignored) {}
+                    return new PlayerData(
+                        Boolean.parseBoolean(properties.getProperty("autoQueueDisabled", "false")),
+                        properties.getProperty("lastJoinedServer")
+                    );
+                } catch (IOException ignored) {}
+            }
+
+            return new PlayerData(false, null);
         });
     }
 
     @Override
-    public CompletableFuture<Void> savePlayer(@NotNull QueuedPlayer player) {
+    public CompletableFuture<Void> savePlayer(@NotNull UUID uuid, PlayerData data) {
         return CompletableFuture.runAsync(() -> {
             try {
-                Path dataFile = dataFolderPath.resolve(player.uuid() + ".txt");
+                Path dataFile = dataFolderPath.resolve(uuid + ".txt");
 
                 Properties properties = new Properties();
-                if (player.getLastJoinedServer().isPresent())
-                    properties.setProperty("lastJoinedServer", player.getLastJoinedServer().get());
+                data.getLastJoinedServer().ifPresent(server -> properties.setProperty("lastJoinedServer", server));
 
-                properties.setProperty("autoQueueDisabled", String.valueOf(player.isAutoQueueDisabled()));
+                properties.setProperty("autoQueueDisabled", String.valueOf(data.isAutoQueueDisabled()));
 
                 try (OutputStream os = Files.newOutputStream(dataFile)) {
                     properties.store(os, null);
                 }
             } catch (IOException e) {
-                plugin.logger().error("An error occurred when saving data for {}", player.uuid(), e);
+                plugin.logger().error("An error occurred when saving data for {}", uuid, e);
             }
         });
     }

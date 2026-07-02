@@ -6,23 +6,24 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import net.earthmc.queue.Queue;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.SubQueue;
+import net.earthmc.queue.config.SubQueueTemplate;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 public class LocalQueue extends Queue {
-    private final Cache<UUID, Integer> rememberedPlayers = CacheBuilder.newBuilder().expireAfterWrite(15, TimeUnit.MINUTES).build();
+    private final Cache<UUID, Integer> rememberedPlayers = CacheBuilder.newBuilder().expireAfterWrite(Queue.REMEMBERED_POSITION_TIME).build();
 
     private boolean paused;
     private @Nullable String pauseReason;
     private Instant unpauseTime = Instant.MAX;
 
     public LocalQueue(RegisteredServer server, QueuePlugin plugin) {
-        super(server, plugin, plugin.config().newSubQueues());
+        super(server, plugin);
     }
 
     /**
@@ -41,7 +42,7 @@ public class LocalQueue extends Queue {
     public void pause(Instant unpauseTime, @Nullable String reason) {
         this.paused = true;
         this.unpauseTime = unpauseTime;
-        this.pauseReason = reason;
+        this.pauseReason = reason != null && !reason.isEmpty() ? reason : null;
     }
 
     @Override
@@ -49,6 +50,7 @@ public class LocalQueue extends Queue {
         this.paused = false;
         this.pauseReason = null;
         this.unpauseTime = Instant.MAX;
+        wakeup();
     }
 
     @Override
@@ -75,5 +77,21 @@ public class LocalQueue extends Queue {
     @Override
     public void forgetPosition(UUID playerUUID) {
         this.rememberedPlayers.invalidate(playerUUID);
+    }
+
+    @Override
+    public int connectedPlayerCount() {
+        return this.getServer().getPlayersConnected().size();
+    }
+
+    @Override
+    public List<SubQueue> createFromTemplates(List<SubQueueTemplate> templates) {
+        final List<SubQueue> ret = new ArrayList<>();
+
+        for (final SubQueueTemplate template : templates) {
+            ret.add(new LocalSubQueue(this, template));
+        }
+
+        return ret;
     }
 }

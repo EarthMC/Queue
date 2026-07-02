@@ -1,5 +1,6 @@
 package net.earthmc.queue;
 
+import net.earthmc.queue.config.SubQueueTemplate;
 import net.earthmc.queue.impl.local.LocalQueue;
 import net.earthmc.queue.impl.local.LocalSubQueue;
 import net.kyori.adventure.text.Component;
@@ -21,9 +22,9 @@ public class QueueTests {
 
     @BeforeEach
     void initQueue() {
-        this.regular = new LocalSubQueue("regular", 0, 1);
-        this.priority = new LocalSubQueue("priority", 1, 1);
-        this.premium = new LocalSubQueue("premium", 5, 3);
+        this.regular = new LocalSubQueue(null, new SubQueueTemplate("regular", 0, 1));
+        this.priority = new LocalSubQueue(null, new SubQueueTemplate("priority", 1, 1));
+        this.premium = new LocalSubQueue(null, new SubQueueTemplate("premium", 5, 3));
 
         List<SubQueue> subQueues = new ArrayList<>();
         subQueues.add(regular);

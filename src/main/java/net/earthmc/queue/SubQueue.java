@@ -10,14 +10,16 @@ import java.util.Set;
 
 @NullMarked
 public abstract class SubQueue extends Weighted {
-    private final String name;
+    protected final Queue queue;
+    protected final String name;
     private Instant lastPositionMessageTime = Instant.EPOCH;
     public final int maxSends;
 
-    public SubQueue(String name, int weight, int maxSends) {
+    public SubQueue(Queue queue, String name, int weight, int maxSends) {
         super(weight);
         this.name = name;
         this.maxSends = maxSends;
+        this.queue = queue;
     }
 
     public abstract Deque<QueuedPlayer> players();

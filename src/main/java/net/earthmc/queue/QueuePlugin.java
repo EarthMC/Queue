@@ -13,6 +13,7 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.permission.Tristate;
+import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
@@ -25,7 +26,8 @@ import net.earthmc.queue.commands.LeaveCommand;
 import net.earthmc.queue.commands.PauseCommand;
 import net.earthmc.queue.commands.QueueCommand;
 import net.earthmc.queue.config.QueueConfig;
-import net.earthmc.queue.impl.local.LocalQueue;
+import net.earthmc.queue.impl.local.LocalQueueController;
+import net.earthmc.queue.impl.mycelium.RemoteQueueController;
 import net.earthmc.queue.storage.FlatFileStorage;
 import net.earthmc.queue.storage.SQLStorage;
 import net.earthmc.queue.storage.Storage;
@@ -40,8 +42,6 @@ import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -52,7 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "queue", name = "Queue", version = BuildConstants.VERSION, authors = {"Warriorrr"})
+@Plugin(id = "queue", name = "Queue", version = BuildConstants.VERSION, authors = "Warriorrr", dependencies = @Dependency(id = "mycelium", optional = true))
 public class QueuePlugin {
 
     private static QueuePlugin instance;
@@ -60,11 +60,13 @@ public class QueuePlugin {
     private final Logger logger;
     private final Path pluginFolderPath;
     private final Map<String, Queue> queues = new ConcurrentHashMap<>();
-    private final Map<UUID, QueuedPlayer> queuedPlayers = new HashMap<>();
     private QueueConfig config;
     private boolean debug = false;
     private Storage storage;
     private final Map<UUID, ScheduledTask> autoAddToQueueTasks = new ConcurrentHashMap<>();
+
+    private final Map<UUID, CompletableFuture<PlayerData>> playerData = new ConcurrentHashMap<>();
+    private QueueController controller;
 
     @Inject
     public QueuePlugin(ProxyServer proxy, CommandManager commandManager, Logger logger, @DataDirectory Path pluginFolderPath) {
@@ -84,10 +86,6 @@ public class QueuePlugin {
         this.config = new QueueConfig(this, pluginFolderPath);
         this.config.load();
 
-        for (RegisteredServer server : proxy.getAllServers()) {
-            queues.put(server.getServerInfo().getName().toLowerCase(Locale.ROOT), new LocalQueue(server, this));
-        }
-
         this.storage = config.getStorageType().equalsIgnoreCase("sql")
                 ? new SQLStorage(this)
                 : new FlatFileStorage(this, pluginFolderPath.resolve("data"));
@@ -99,17 +97,29 @@ public class QueuePlugin {
             this.storage = new FlatFileStorage(this, pluginFolderPath.resolve("data"));
         }
 
+        if (proxy.getPluginManager().isLoaded("mycelium")) {
+            controller = new RemoteQueueController(this);
+        } else {
+            controller = new LocalQueueController(this);
+        }
+
+        proxy.getEventManager().register(this, controller);
+
         // Load any paused queues from the paused-queues.json file.
         loadPausedQueues();
 
         proxy.getScheduler().buildTask(this, () -> {
-            for (Queue queue : queues().values())
-                queue.sendNext();
+            if (controller.canTickQueues()) {
+                for (Queue queue : queues().values()) {
+                    queue.sendNext();
+                }
+            }
         }).repeat(500, TimeUnit.MILLISECONDS).schedule();
 
         proxy.getScheduler().buildTask(this, () -> {
-            for (Queue queue : queues.values())
+            for (Queue queue : queues.values()) {
                 queue.refreshMaxPlayers();
+            }
         }).repeat(10, TimeUnit.SECONDS).schedule();
     }
 
@@ -124,11 +134,14 @@ public class QueuePlugin {
         }
 
         savePausedQueues();
+        controller.disable();
     }
 
     public boolean reload() {
         if (!this.config.reload())
             return false;
+
+        this.controller.reloadCallback();
 
         // Disable storage if it isn't null
         if (this.storage != null) {
@@ -156,28 +169,29 @@ public class QueuePlugin {
     @Subscribe
     public void onPlayerJoin(PostLoginEvent event) {
         // Load saved data for this player async upon login.
-        queued(event.getPlayer()).loadData();
+        playerData.put(event.getPlayer().getUniqueId(), this.storage.loadPlayer(event.getPlayer().getUniqueId()));
     }
 
     @Subscribe
     public void onPlayerLeave(DisconnectEvent event) {
         final UUID uuid = event.getPlayer().getUniqueId();
 
-        QueuedPlayer player = queuedPlayers.get(uuid);
-        if (player != null) {
-            if (player.isInQueue())
-                player.queue().remove(player);
+        final CompletableFuture<PlayerData> playerDataFuture = this.playerData.remove(uuid);
+        if (playerDataFuture != null && playerDataFuture.isDone()) {
+            final PlayerData playerData = playerDataFuture.join();
 
             event.getPlayer().getCurrentServer().ifPresent(server -> {
                 // Set the player's last joined server if it isn't an auto queue server
-                if (!config.autoQueueSettings().autoQueueServers().contains(server.getServerInfo().getName().toLowerCase(Locale.ROOT)))
-                    player.setLastJoinedServer(server.getServerInfo().getName());
+                if (!config.autoQueueSettings().autoQueueServers().contains(server.getServerInfo().getName().toLowerCase(Locale.ROOT))) {
+                    playerData.setLastJoinedServer(server.getServerInfo().getName());
+                }
             });
 
-            this.storage.savePlayer(player);
+            if (playerData.isDirty()) {
+                this.storage.savePlayer(uuid, playerData);
+            }
         }
 
-        queuedPlayers.remove(uuid);
         cancelAutoQueueTask(event.getPlayer());
     }
 
@@ -186,8 +200,9 @@ public class QueuePlugin {
         QueuedPlayer player = queued(event.getPlayer());
 
         // Remove the player from their queue if their queue is for the server they just joined.
-        if (player.isInQueue() && player.queue().getServer().getServerInfo().getName().equalsIgnoreCase(event.getServer().getServerInfo().getName()))
-            player.queue().remove(player);
+        final Queue queue = player.queue();
+        if (queue != null && queue.getServer().getServerInfo().getName().equalsIgnoreCase(event.getServer().getServerInfo().getName()))
+            queue.remove(player);
 
         processAutoQueue(event, player);
     }
@@ -204,19 +219,17 @@ public class QueuePlugin {
         )
             return;
 
-        QueuedPlayer player = queued(event.getPlayer());
-        final CompletableFuture<Void> loadFuture = player.loadFuture();
-        if (loadFuture != null && player.getLastJoinedServer().isEmpty())
-            loadFuture.join(); // We want to ensure that player data is loaded so that we can get their last server
+        final CompletableFuture<PlayerData> loadFuture = playerData.get(event.getPlayer().getUniqueId());
+        final PlayerData data = loadFuture != null ? loadFuture.join() : null;
 
-        final String target = validateAutoQueueTarget(event.getPlayer(), player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
+        final String target = validateAutoQueueTarget(event.getPlayer(), Optional.ofNullable(data).flatMap(PlayerData::getLastJoinedServer).orElse(config.autoQueueSettings().defaultTarget()));
 
         if (!Brig.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
             return;
 
         final Queue queue = queue(target);
         final int playerCount;
-        if (queue == null || queue.paused() || (playerCount = queue.playerCount()) > 1 || queue.getServer().getPlayersConnected().size() + playerCount >= queue.maxPlayers()) {
+        if (queue == null || queue.paused() || (playerCount = queue.playerCount()) > 1 || queue.connectedPlayerCount() + playerCount >= queue.maxPlayers()) {
             return;
         }
 
@@ -234,8 +247,11 @@ public class QueuePlugin {
         )
             return;
 
-        if (player.isAutoQueueDisabled()) {
-            final String target = validateAutoQueueTarget(event.getPlayer(), player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
+        final CompletableFuture<PlayerData> loadFuture = playerData.get(event.getPlayer().getUniqueId());
+        final PlayerData data = loadFuture != null ? loadFuture.join() : null;
+
+        if (data != null && data.isAutoQueueDisabled()) {
+            final String target = validateAutoQueueTarget(event.getPlayer(), data.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
 
             player.sendMessage(Component.text("Auto queue is currently disabled, use ", NamedTextColor.GRAY)
                 .append(Component.text("/joinqueue " + target).clickEvent(ClickEvent.runCommand("/joinqueue " + target)))
@@ -248,7 +264,7 @@ public class QueuePlugin {
         autoAddToQueueTasks.put(uuid, proxy().getScheduler().buildTask(this, () -> {
             autoAddToQueueTasks.remove(uuid);
 
-            String target = player.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget());
+            String target = Optional.ofNullable(data).flatMap(PlayerData::getLastJoinedServer).orElse(config.autoQueueSettings().defaultTarget());
             final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
 
             target = validateAutoQueueTarget(event.getPlayer(), target);
@@ -309,18 +325,14 @@ public class QueuePlugin {
         if (registeredServer.isEmpty())
             return null;
 
-        queue = new LocalQueue(registeredServer.get(), this);
+        queue = controller.createQueue(registeredServer.get());
         queues.put(serverName.toLowerCase(Locale.ROOT), queue);
 
         return queue;
     }
 
     public QueuedPlayer queued(Player player) {
-        return queuedPlayers.computeIfAbsent(player.getUniqueId(), k -> new QueuedPlayer(player));
-    }
-
-    public Collection<QueuedPlayer> queuedPlayers() {
-        return queuedPlayers.values();
+        return controller.player(player);
     }
 
     public static void debug(Object message) {
@@ -404,5 +416,13 @@ public class QueuePlugin {
 
     private CommandMeta buildMeta(String alias) {
         return this.proxy.getCommandManager().metaBuilder(alias).plugin(this).build();
+    }
+
+    public QueueController controller() {
+        return controller;
+    }
+
+    public Map<UUID, CompletableFuture<PlayerData>> getPlayerData() {
+        return playerData;
     }
 }

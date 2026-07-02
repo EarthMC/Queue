@@ -98,15 +98,6 @@ public class Ratio<T> {
         return currentIndex + 1;
     }
 
-    public void updateOptions(Map<T, Integer> ratios) {
-        // Update existing options with new max uses in order to allow ratios to be updated via the reload command.
-        for (Option<T> option : this.options) {
-            ratios.entrySet().stream().filter(entry -> entry.getKey().equals(option.value)).findFirst().ifPresent(entry -> {
-                option.setMaxUses(entry.getValue());
-            });
-        }
-    }
-
     private static class Option<T> {
         private final T value;
         private int maxUses;

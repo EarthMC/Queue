@@ -2,24 +2,28 @@ plugins {
     id("java")
     alias(libs.plugins.shadow)
     alias(libs.plugins.conventions.java)
+    alias(libs.plugins.conventions.publishing) apply false
     id("jacoco")
 }
 
 repositories {
     mavenCentral()
 
-    maven {
-        name = "paper"
-        url = uri("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.papermc.io/repository/maven-public/")
+
+    maven("https://repo.earthmc.net/public") {
+        mavenContent { includeGroup("net.earthmc.mycelium") }
     }
 }
 
 val mockitoAgent = configurations.create("mockitoAgent")
 
 dependencies {
+    implementation(project(":mycelium-api"))
     compileOnly(libs.velocity.api)
     annotationProcessor(libs.velocity.api)
     implementation(libs.mysql.connector)
+    compileOnly(libs.mycelium)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockito)
@@ -33,10 +37,6 @@ dependencies {
 java.sourceCompatibility = JavaVersion.VERSION_21
 
 tasks {
-    assemble {
-        dependsOn(shadowJar)
-    }
-
     shadowJar {
         archiveClassifier.set("")
 

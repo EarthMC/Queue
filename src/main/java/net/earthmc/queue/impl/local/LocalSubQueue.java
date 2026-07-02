@@ -1,8 +1,10 @@
 package net.earthmc.queue.impl.local;
 
+import net.earthmc.queue.Queue;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
 import net.earthmc.queue.SubQueue;
+import net.earthmc.queue.config.SubQueueTemplate;
 import org.jspecify.annotations.NullMarked;
 
 import java.util.Deque;
@@ -15,8 +17,8 @@ public class LocalSubQueue extends SubQueue {
     private final LinkedList<QueuedPlayer> players = new LinkedList<>();
     private final Set<QueuedPlayer> playerSet = ConcurrentHashMap.newKeySet();
 
-    public LocalSubQueue(String name, int weight, int maxSends) {
-        super(name, weight, maxSends);
+    public LocalSubQueue(Queue queue, SubQueueTemplate template) {
+        super(queue, template.name(), template.weight(), template.maxSends());
     }
 
     @Override

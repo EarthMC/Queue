@@ -7,6 +7,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
+import net.earthmc.queue.PlayerData;
 import net.earthmc.queue.Queue;
 import net.earthmc.queue.QueuePlugin;
 import net.earthmc.queue.QueuedPlayer;
@@ -18,6 +19,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class QueueCommand {
 
@@ -46,17 +48,23 @@ public class QueueCommand {
                         return Command.SINGLE_SUCCESS;
                     }
 
-                    final QueuedPlayer queuedPlayer = plugin.queued(player);
+                    final CompletableFuture<PlayerData> dataFuture = plugin.getPlayerData().get(player.getUniqueId());
+                    if (dataFuture != null) {
+                        dataFuture.thenAccept(data -> {
+                            data.setAutoQueueDisabled(!data.isAutoQueueDisabled());
+                            if (data.isAutoQueueDisabled()) {
+                                player.sendMessage(Component.text("You will no longer automatically join a queue after joining.", NamedTextColor.GREEN));
+                                plugin.cancelAutoQueueTask(player);
+                            } else {
+                                player.sendMessage(Component.text("You will now automatically join the queue for your last server upon joining.", NamedTextColor.GREEN));
+                            }
+                        });
 
-                    queuedPlayer.setAutoQueueDisabled(!queuedPlayer.isAutoQueueDisabled());
-                    if (queuedPlayer.isAutoQueueDisabled()) {
-                        player.sendMessage(Component.text("You will no longer automatically join a queue after joining.", NamedTextColor.GREEN));
-                        plugin.cancelAutoQueueTask(player);
+                        return Command.SINGLE_SUCCESS;
                     } else {
-                        player.sendMessage(Component.text("You will now automatically join the queue for your last server upon joining.", NamedTextColor.GREEN));
+                        player.sendMessage(Component.text("Your data has not been loaded yet.", NamedTextColor.RED));
+                        return 0;
                     }
-
-                    return Command.SINGLE_SUCCESS;
                 }))
             .then(BrigadierCommand.literalArgumentBuilder("skip")
                   .requires(source -> source.hasPermission("queue.skip"))
@@ -173,9 +181,10 @@ public class QueueCommand {
             return 0;
         }
 
-        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.queue().getSubQueue(queuedPlayer).players().size(), NamedTextColor.GREEN).append(Component.text(" for " + queuedPlayer.queue().getServerFormatted(), NamedTextColor.YELLOW))))));
-        if (queuedPlayer.queue().paused()) {
-            queuedPlayer.queue().sendPausedQueueMessage(queuedPlayer);
+        final Queue queue = queuedPlayer.queue();
+        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(queuedPlayer.position() + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(queue.getSubQueue(queuedPlayer).players().size(), NamedTextColor.GREEN).append(Component.text(" for " + queue.getServerFormatted(), NamedTextColor.YELLOW))))));
+        if (queue.paused()) {
+            queue.sendPausedQueueMessage(queuedPlayer, queue.pauseReason());
         }
 
         return Command.SINGLE_SUCCESS;

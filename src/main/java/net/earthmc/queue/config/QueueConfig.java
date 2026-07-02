@@ -2,13 +2,10 @@ package net.earthmc.queue.config;
 
 import com.moandjiezana.toml.Toml;
 import net.earthmc.queue.Priority;
-import net.earthmc.queue.Queue;
 import net.earthmc.queue.QueuePlugin;
-import net.earthmc.queue.QueuedPlayer;
-import net.earthmc.queue.SubQueue;
-import net.earthmc.queue.impl.local.LocalSubQueue;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 
 import java.io.IOException;
@@ -17,9 +14,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,8 +32,8 @@ public class QueueConfig {
     private final Path configPath;
     private Toml config;
 
-    private List<Priority> priorities;
-    private List<SubQueue> subQueues;
+    private Map<String, Priority> priorities;
+    private List<SubQueueTemplate> subQueues;
     private List<String> subQueueNames = List.of();
     private AutoQueueSettings autoQueueSettings;
 
@@ -48,7 +47,7 @@ public class QueueConfig {
         saveDefaultConfig();
 
         config = new Toml().read(configPath.toFile());
-        priorities = new ArrayList<>();
+        priorities = new LinkedHashMap<>();
         subQueues = new ArrayList<>();
 
         plugin.setDebug(config.getBoolean("debug", false));
@@ -61,16 +60,19 @@ public class QueueConfig {
                 autoQueueConfig.getBoolean("insta-send", false)
         );
 
+        final List<Priority> priorityList = new ArrayList<>();
+
         for (Toml priority : config.getTables("priority")) {
             String name = priority.getString("name", "none");
             long weight = priority.getLong("weight", 0L);
             Component message = MiniMessage.miniMessage().deserialize(priority.getString("message", ""));
 
-            priorities.add(new Priority(name, Math.max((int) weight, 0), message));
+            priorityList.add(new Priority(name, Math.max((int) weight, 0), message));
             QueuePlugin.debug("Added new priority with name " + name + ".");
         }
 
-        Collections.sort(priorities);
+        Collections.sort(priorityList);
+        priorityList.forEach(priority -> priorities.put(priority.name(), priority));
 
         boolean hasRegularQueue = false;
         for (Toml subQueue : config.getTables("subqueue")) {
@@ -78,7 +80,7 @@ public class QueueConfig {
             long weight = subQueue.getLong("min-weight", 0L);
             long maxSends = subQueue.getLong("sends", 0L);
 
-            subQueues.add(new LocalSubQueue(name, (int) weight, (int) maxSends));
+            subQueues.add(new SubQueueTemplate(name, (int) weight, (int) maxSends));
             QueuePlugin.debug("Added new subqueue with name " + name + ".");
 
             if (weight == 0)
@@ -86,33 +88,22 @@ public class QueueConfig {
         }
 
         if (!hasRegularQueue)
-            subQueues.add(new LocalSubQueue("regular", 0, 1));
+            subQueues.add(new SubQueueTemplate("regular", 0, 1));
 
-        Collections.sort(subQueues);
+        subQueues.sort(Comparator.comparing(SubQueueTemplate::weight, Comparator.reverseOrder()));
 
-        Map<SubQueue, Integer> ratios = new HashMap<>();
         List<String> subQueueNames = new ArrayList<>();
-        for (SubQueue subQueue : this.subQueues) {
-            ratios.put(subQueue, subQueue.maxSends);
+        for (SubQueueTemplate subQueue : this.subQueues) {
             subQueueNames.add(subQueue.name());
         }
 
         this.subQueueNames = List.copyOf(subQueueNames);
 
-        for (Queue queue : plugin.queues().values())
-            queue.getSubQueueRatio().updateOptions(ratios);
-
         return true;
     }
 
     public boolean reload() {
-        if (!load())
-            return false;
-
-        for (QueuedPlayer player : plugin.queuedPlayers())
-            player.clearPriority();
-
-        return true;
+        return load();
     }
 
     private void saveDefaultConfig() {
@@ -135,23 +126,20 @@ public class QueueConfig {
         }
     }
 
-    public List<SubQueue> newSubQueues() {
-        List<SubQueue> newSubQueues = new ArrayList<>();
-
-        for (SubQueue subQueue : this.subQueues)
-            newSubQueues.add(new LocalSubQueue(subQueue.name(), subQueue.weight(), subQueue.maxSends()));
-
-        Collections.sort(newSubQueues);
-
-        return newSubQueues;
+    public List<SubQueueTemplate> subQueueTemplates() {
+        return List.copyOf(subQueues);
     }
 
     public @Unmodifiable List<String> subQueueNames() {
         return subQueueNames;
     }
 
-    public List<Priority> priorities() {
-        return priorities;
+    public Collection<Priority> priorities() {
+        return priorities.values();
+    }
+
+    public @Nullable Priority priority(final String name) {
+        return this.priorities.get(name);
     }
 
     public AutoQueueSettings autoQueueSettings() {

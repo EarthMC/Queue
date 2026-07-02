@@ -1,100 +1,22 @@
 package net.earthmc.queue;
 
-import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
+import net.earthmc.queue.object.ConnectionResult;
 import net.kyori.adventure.audience.Audience;
-import net.kyori.adventure.audience.ForwardingAudience;
-import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-public class QueuedPlayer implements ForwardingAudience.Single {
-    protected static final Priority NONE_PRIORITY = new Priority("none", 0, Component.empty());
+public abstract class QueuedPlayer implements Audience {
+    protected final UUID uuid;
+    protected final String name;
 
-    private final UUID uuid;
-    private final String name;
-    private Queue queue;
-    private Priority priority;
-    private String lastJoined;
-    private boolean autoQueueDisabled;
-    private boolean dataLoaded = false;
-    private CompletableFuture<Void> loadFuture = null;
-
-    public QueuedPlayer(@NotNull Player player) {
-        this.uuid = player.getUniqueId();
-        this.name = player.getUsername();
-    }
-
-    @Nullable
-    public Player player() {
-        return QueuePlugin.instance().proxy().getPlayer(this.uuid).orElse(null);
-    }
-
-    /**
-     * @return The player's priority, calculating it if required.
-     */
-    @NotNull
-    public Priority priority() {
-        if (priority == null)
-            priority = calculatePriority();
-
-        return priority;
-    }
-
-    /**
-     * Gets the player's current position in their sub queue, or -1 if they are not in a queue.
-     * @return -1 or the player's sub queue position
-     */
-    public int position() {
-        if (queue == null)
-            return -1;
-
-        return queue.getSubQueue(this).playerPosition(this);
-    }
-
-    public boolean isInQueue() {
-        if (this.queue != null)
-            if (!this.queue.hasPlayer(this))
-                this.queue = null;
-
-        return this.queue != null;
-    }
-
-    public Queue queue() {
-        return this.queue;
-    }
-
-    public void queue(@Nullable Queue queue) {
-        this.queue = queue;
-    }
-
-    private @NotNull Priority calculatePriority() {
-        Player player = player();
-
-        if (player == null)
-            return NONE_PRIORITY;
-
-        for (Priority priority : QueuePlugin.instance().config().priorities()) {
-            if (player.hasPermission("queue.priority." + priority.name().toLowerCase(Locale.ROOT)))
-                return priority;
-        }
-
-        return NONE_PRIORITY;
-    }
-
-    public void clearPriority() {
-        // Reset the priority to null so that it's re-calculated next time #priority is called.
-        this.priority = null;
-    }
-
-    @Override
-    public @NotNull Audience audience() {
-        return QueuePlugin.instance().proxy().getPlayer(this.uuid).map(player -> (Audience) player).orElse(Audience.empty());
+    public QueuedPlayer(final UUID uuid, final String name) {
+        this.uuid = uuid;
+        this.name = name;
     }
 
     @NotNull
@@ -107,32 +29,35 @@ public class QueuedPlayer implements ForwardingAudience.Single {
         return this.name;
     }
 
-    public void loadData() {
-        if (!dataLoaded) {
-            dataLoaded = true;
-            this.loadFuture = QueuePlugin.instance().storage().loadPlayer(this).whenComplete((v, t) -> this.loadFuture = null);
-        }
+    public abstract Queue queue();
+
+    public abstract void queue(@Nullable Queue queue);
+
+    public boolean isInQueue() {
+        final Queue queue = queue();
+        if (queue != null)
+            if (!queue.hasPlayer(this))
+                queue(null);
+
+        return queue != null;
     }
 
-    @Nullable
-    public CompletableFuture<Void> loadFuture() {
-        return this.loadFuture;
-    }
+    public abstract Priority priority();
 
-    public boolean isAutoQueueDisabled() {
-        return this.autoQueueDisabled;
-    }
+    public abstract boolean isConnected();
 
-    public void setAutoQueueDisabled(boolean autoQueueDisabled) {
-        this.autoQueueDisabled = autoQueueDisabled;
-    }
+    public abstract CompletableFuture<? extends @Nullable ConnectionResult> sendToServer(final RegisteredServer server);
 
-    public Optional<String> getLastJoinedServer() {
-        return Optional.ofNullable(this.lastJoined);
-    }
+    /**
+     * Gets the player's current position in their sub queue, or -1 if they are not in a queue.
+     * @return -1 or the player's sub queue position
+     */
+    public int position() {
+        final Queue queue = queue();
+        if (queue == null)
+            return -1;
 
-    public void setLastJoinedServer(@Nullable String lastJoinedServer) {
-        this.lastJoined = lastJoinedServer;
+        return queue.getSubQueue(this).playerPosition(this);
     }
 
     @Override

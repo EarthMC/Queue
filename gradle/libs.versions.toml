@@ -1,6 +1,7 @@
 [versions]
 velocity = "3.5.0-SNAPSHOT"
 mysql-connector = "9.1.0"
+mycelium = "0.0.1-beta.10"
 junit = "6.0.3"
 mockito = "5.22.0"
 
@@ -10,6 +11,7 @@ conventions = "1.1.0"
 [libraries]
 velocity-api = { group = "com.velocitypowered", name = "velocity-api", version.ref = "velocity" }
 mysql-connector = { group = "com.mysql", name = "mysql-connector-j", version.ref = "mysql-connector" }
+mycelium = { group = "net.earthmc.mycelium", name = "api", version.ref = "mycelium" }
 junit = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }
 junit-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junit" }
 junit-engine = { group = "org.junit.platform", name = "junit-platform-engine", version.ref = "junit" }
@@ -18,3 +20,4 @@ mockito = { group = "org.mockito", name = "mockito-junit-jupiter", version.ref =
 [plugins]
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 conventions-java = { id = "net.earthmc.conventions.java", version.ref = "conventions" }
+conventions-publishing = { id = "net.earthmc.conventions.publishing", version.ref = "conventions" }

@@ -5,8 +5,10 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 public class Priority extends Weighted {
-    public final String name;
-    public final Component message;
+    public static final Priority NONE_PRIORITY = new Priority("none", 0, Component.empty());
+
+    private final String name;
+    private final Component message;
 
     public Priority(String name, int weight, Component message) {
         super(weight);
