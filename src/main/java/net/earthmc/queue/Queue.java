@@ -196,14 +196,15 @@ public abstract class Queue {
     }
 
     public void enqueue(QueuedPlayer player) {
-        if (player.queue() != null) {
-            if (player.queue().equals(this)) {
+        final Queue currQueue = player.queue();
+        if (currQueue != null) {
+            if (currQueue.equals(this)) {
                 player.sendMessage(Component.text("You are already queued for this server.", NamedTextColor.RED));
                 return;
             } else {
-                player.sendMessage(Component.text("You have been removed from the queue for " + player.queue().getServerFormatted() + ".", NamedTextColor.RED));
+                player.sendMessage(Component.text("You have been removed from the queue for " + currQueue.getServerFormatted() + ".", NamedTextColor.RED));
                 plugin.logger().info("{} has been removed from the queue, because they joined the queue for another.", player.name());
-                player.queue().remove(player);
+                currQueue.remove(player);
             }
         }
 
@@ -214,8 +215,10 @@ public abstract class Queue {
         player.sendMessage(Component.text("You have joined the queue for " + formattedName + ".", NamedTextColor.GREEN));
         player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(position + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(subQueue.players().size(), NamedTextColor.GREEN)).append(Component.text(".", NamedTextColor.YELLOW)))));
 
-        if (!player.priority().message().equals(Component.empty()))
-            player.sendMessage(player.priority().message());
+        final Priority priority = player.priority();
+        if (!priority.message().equals(Component.empty())) {
+            player.sendMessage(priority.message());
+        }
 
         if (paused()) {
             sendPausedQueueMessage(player, pauseReason());
