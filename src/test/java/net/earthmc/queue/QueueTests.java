@@ -113,7 +113,7 @@ public class QueueTests {
             final SubQueue spy = spy(regular);
             final QueuedPlayer player = QueuedPlayerMock.newMock();
 
-            assertEquals(expectedPosition, queue.addToQueue(player, spy));
+            assertEquals(expectedPosition - 1, queue.addToQueue(player, spy)); // 0 indexed
             assertEquals(expectedPosition, regular.players().size());
             assertEquals(expectedPosition, queue.playerCount());
             verify(spy).addToTail(player);

@@ -212,7 +212,7 @@ public abstract class Queue {
         final int position = addToQueue(player, subQueue);
 
         player.sendMessage(Component.text("You have joined the queue for " + formattedName + ".", NamedTextColor.GREEN));
-        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(position, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(subQueue.players().size(), NamedTextColor.GREEN)).append(Component.text(".", NamedTextColor.YELLOW)))));
+        player.sendMessage(Component.text("You are currently in position ", NamedTextColor.YELLOW).append(Component.text(position + 1, NamedTextColor.GREEN).append(Component.text(" of ", NamedTextColor.YELLOW).append(Component.text(subQueue.players().size(), NamedTextColor.GREEN)).append(Component.text(".", NamedTextColor.YELLOW)))));
 
         if (!player.priority().message().equals(Component.empty()))
             player.sendMessage(player.priority().message());
@@ -228,13 +228,13 @@ public abstract class Queue {
      *
      * @param player The player to add
      * @param subQueue The sub queue to add the player to.
-     * @return The player's position within the sub queue
+     * @return The player's position within the sub queue, 0-indexed
      */
     protected int addToQueue(QueuedPlayer player, SubQueue subQueue) {
         final int size = subQueue.players().size();
         if (size == 0) {
             subQueue.addToTail(player);
-            return 1;
+            return 0;
         }
 
         final OptionalInt rememberedPosition = getRememberedPosition(player.uuid());
@@ -243,7 +243,7 @@ public abstract class Queue {
         if (weight <= subQueue.weight() && (rememberedPosition.isEmpty() || rememberedPosition.getAsInt() >= size - 1)) {
             // no remembered position and no extra weight, add to the end of the queue
             subQueue.addToTail(player);
-            return size + 1;
+            return size;
         }
 
         if (rememberedPosition.isPresent() && rememberedPosition.getAsInt() <= 0) {
