@@ -10,6 +10,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Unmodifiable;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -92,6 +93,7 @@ public abstract class Queue {
                 player.sendMessage(Component.text(reason, NamedTextColor.RED));
             }
 
+            plugin.logger().warn("Automatically pausing the queue for {} for 30s as the target server refused the last 5 players.", formattedName);
             failedAttempts = 0;
             return;
         }
@@ -130,6 +132,7 @@ public abstract class Queue {
                 toSend.sendMessage(Component.text("Attempting to re-queue you...", NamedTextColor.RED));
                 toSend.queue(this);
                 queue.addToHead(toSend);
+                plugin.logger().warn("Failed to send {} to {}: {}", toSend.name(), formattedName, result instanceof ConnectionResult.FailedWithMessage(Component reason) ? PlainTextComponentSerializer.plainText().serialize(reason) : "No reason provided.");
                 failedAttempts++;
             }
         });
