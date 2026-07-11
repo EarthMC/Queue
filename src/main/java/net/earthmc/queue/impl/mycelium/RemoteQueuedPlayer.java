@@ -12,8 +12,6 @@ import net.earthmc.queue.QueuedPlayer;
 import net.earthmc.queue.object.ConnectionResult;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.ForwardingAudience;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,13 +67,8 @@ public class RemoteQueuedPlayer extends QueuedPlayer implements ForwardingAudien
     @Override
     public CompletableFuture<? extends ConnectionResult> sendToServer(RegisteredServer server) {
         final net.earthmc.mycelium.api.network.Player mPlayer = api.network().getPlayerByUUID(uuid);
-        final Server mServer = api.network().getServerById(server.getServerInfo().getName().toLowerCase(Locale.ROOT));
         if (mPlayer == null) {
             return CompletableFuture.completedFuture(null);
-        }
-
-        if (mServer == null) {
-            return CompletableFuture.completedFuture(new ConnectionResult.FailedWithMessage(Component.text(server.getServerInfo().getName() + " is currently unreachable/offline", NamedTextColor.RED)));
         }
 
         final Server currentServer = mPlayer.server();
@@ -83,7 +76,7 @@ public class RemoteQueuedPlayer extends QueuedPlayer implements ForwardingAudien
             return CompletableFuture.completedFuture(null);
         }
 
-        return mPlayer.transferToServer(mServer)
+        return mPlayer.transferToServer(server.getServerInfo().getName().toLowerCase(Locale.ROOT))
             .thenApply(result -> {
                 if (result.failureMessage() != null) {
                     return new ConnectionResult.FailedWithMessage(result.failureMessage());

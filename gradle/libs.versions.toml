@@ -1,7 +1,7 @@
 [versions]
 velocity = "3.5.0-SNAPSHOT"
 mysql-connector = "9.1.0"
-mycelium = "0.0.1-beta.10"
+mycelium = "0.0.1-beta.11"
 junit = "6.0.3"
 mockito = "5.22.0"
 
