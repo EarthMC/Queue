@@ -22,6 +22,8 @@ public class LeaveCommand {
                     return Command.SINGLE_SUCCESS;
                 }
 
+                plugin.cancelAutoQueueTask(player);
+
                 final QueuedPlayer queuedPlayer = plugin.queued(player);
 
                 if (!queuedPlayer.isInQueue()) {
