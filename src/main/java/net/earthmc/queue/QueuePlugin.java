@@ -201,8 +201,16 @@ public class QueuePlugin {
 
         // Remove the player from their queue if their queue is for the server they just joined.
         final Queue queue = player.queue();
-        if (queue != null && queue.getServer().getServerInfo().getName().equalsIgnoreCase(event.getServer().getServerInfo().getName()))
+        if (queue != null && queue.getServer().getServerInfo().getName().equalsIgnoreCase(event.getServer().getServerInfo().getName())) {
             queue.remove(player);
+        }
+
+        // cancel auto queue after server switch
+        event.getPreviousServer().ifPresent(previous -> {
+            if (config.autoQueueSettings().autoQueueServers().contains(previous.getServerInfo().getName())) {
+                cancelAutoQueueTask(event.getPlayer());
+            }
+        });
 
         processAutoQueue(event, player);
     }
@@ -237,21 +245,22 @@ public class QueuePlugin {
         logger.info("{} has been sent to {} via autoqueue.", event.getPlayer().getUsername(), queue.getServerFormatted());
     }
 
-    public void processAutoQueue(ServerConnectedEvent event, QueuedPlayer player) {
-        final UUID uuid = event.getPlayer().getUniqueId();
+    public void processAutoQueue(ServerConnectedEvent event, QueuedPlayer queuedPlayer) {
+        final Player player = event.getPlayer();
+        final UUID uuid = player.getUniqueId();
 
         if (
                 autoAddToQueueTasks.containsKey(uuid) // There's already a scheduled auto queue task for this player
-                || event.getPlayer().getPermissionValue("queue.autoqueue") == Tristate.FALSE // The player has the auto queue permission explicitly set to false
+                || player.getPermissionValue("queue.autoqueue") == Tristate.FALSE // The player has the auto queue permission explicitly set to false
                 || !config.autoQueueSettings().autoQueueServers().contains(event.getServer().getServerInfo().getName().toLowerCase(Locale.ROOT)) // The player isn't on one of the auto queue servers.
         )
             return;
 
-        final CompletableFuture<PlayerData> loadFuture = playerData.get(event.getPlayer().getUniqueId());
+        final CompletableFuture<PlayerData> loadFuture = playerData.get(uuid);
         final PlayerData data = loadFuture != null ? loadFuture.join() : null;
 
         if (data != null && data.isAutoQueueDisabled()) {
-            final String target = validateAutoQueueTarget(event.getPlayer(), data.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
+            final String target = validateAutoQueueTarget(player, data.getLastJoinedServer().orElse(config.autoQueueSettings().defaultTarget()));
 
             player.sendMessage(Component.text("Auto queue is currently disabled, use ", NamedTextColor.GRAY)
                 .append(Component.text("/joinqueue " + target).clickEvent(ClickEvent.runCommand("/joinqueue " + target)))
@@ -264,24 +273,24 @@ public class QueuePlugin {
         autoAddToQueueTasks.put(uuid, proxy().getScheduler().buildTask(this, () -> {
             autoAddToQueueTasks.remove(uuid);
 
-            String target = Optional.ofNullable(data).flatMap(PlayerData::getLastJoinedServer).orElse(config.autoQueueSettings().defaultTarget());
-            final String currentServerName = event.getPlayer().getCurrentServer().map(server -> server.getServerInfo().getName()).orElse("unknown");
+            final String target = Optional.ofNullable(data).flatMap(PlayerData::getLastJoinedServer)
+                .map(server -> validateAutoQueueTarget(player, server))
+                .orElse(config.autoQueueSettings().defaultTarget());
 
-            target = validateAutoQueueTarget(event.getPlayer(), target);
+            final String currentServerName = event.getServer().getServerInfo().getName();
 
             // Prevent the player from being auto queued to the server they are already on
-            if (target.equalsIgnoreCase(currentServerName))
+            if (target.equalsIgnoreCase(currentServerName) || player.getCurrentServer().map(server -> server.getServerInfo().getName().equalsIgnoreCase(target)).orElse(false))
                 return;
 
-            // Simply return if the player doesn't have permissions to join the default target.
-            if (!Brig.hasPrefixedPermission(event.getPlayer(), "queue.join.", target))
+            if (!Brig.hasPrefixedPermission(player, "queue.join.", target))
                 return;
 
             Queue queue = queue(target);
             if (queue != null) {
-                debug(event.getPlayer().getUsername() + " has been automatically queued for " + target + ".");
-                event.getPlayer().sendMessage(Component.text("You are being automatically queued for " + queue.getServerFormatted() + ".", NamedTextColor.GREEN));
-                queue.enqueue(player);
+                debug(player.getUsername() + " has been automatically queued for " + target + ".");
+                player.sendMessage(Component.text("You are being automatically queued for " + queue.getServerFormatted() + ".", NamedTextColor.GREEN));
+                queue.enqueue(queuedPlayer);
             }
         }).delay(config.autoQueueSettings().delay(), TimeUnit.SECONDS).schedule());
     }
