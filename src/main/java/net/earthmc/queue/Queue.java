@@ -284,16 +284,16 @@ public abstract class Queue {
     }
 
     public void remove(QueuedPlayer player) {
-        player.queue(null);
-
         for (SubQueue subQueue : this.subQueues) {
-            if (subQueue.hasPlayer(player)) {
+            if (subQueue.removePlayer(player)) {
+                player.queue(null);
+
                 final int position = subQueue.playerPosition(player);
                 if (position != -1) {
                     rememberPosition(player.uuid(), position);
-                    subQueue.removePlayer(player);
-                    break;
                 }
+
+                break;
             }
         }
     }
