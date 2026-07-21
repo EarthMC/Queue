@@ -68,11 +68,11 @@ public class QueueConfig {
             Component message = MiniMessage.miniMessage().deserialize(priority.getString("message", ""));
 
             priorityList.add(new Priority(name, Math.max((int) weight, 0), message));
-            QueuePlugin.debug("Added new priority with name " + name + ".");
         }
 
         Collections.sort(priorityList);
         priorityList.forEach(priority -> priorities.put(priority.name(), priority));
+        QueuePlugin.debug("Loaded " + priorities.size() + " priorit" + (priorities.size() == 1 ? "y" : "ies") + ": [" + String.join(", ", priorities.keySet()) + "]");
 
         boolean hasRegularQueue = false;
         for (Toml subQueue : config.getTables("subqueue")) {
@@ -81,14 +81,13 @@ public class QueueConfig {
             long maxSends = subQueue.getLong("sends", 0L);
 
             subQueues.add(new SubQueueTemplate(name, (int) weight, (int) maxSends));
-            QueuePlugin.debug("Added new subqueue with name " + name + ".");
 
-            if (weight == 0)
-                hasRegularQueue = true;
+            hasRegularQueue |= weight == 0;
         }
 
-        if (!hasRegularQueue)
+        if (!hasRegularQueue) {
             subQueues.add(new SubQueueTemplate("regular", 0, 1));
+        }
 
         subQueues.sort(Comparator.comparing(SubQueueTemplate::weight, Comparator.reverseOrder()));
 
@@ -98,6 +97,7 @@ public class QueueConfig {
         }
 
         this.subQueueNames = List.copyOf(subQueueNames);
+        QueuePlugin.debug("Loaded " + subQueueNames.size() + " subqueue" + (subQueueNames.size() == 1 ? "" : "s") + ": [" + String.join(", ", subQueueNames) + "]");
 
         return true;
     }
